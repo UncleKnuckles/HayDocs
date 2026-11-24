@@ -41,14 +41,18 @@ jobs:
         id: engine-cache
         uses: actions/cache/restore@v4
         with:
+          # engine/vendor is cached too: a fresh WordCraft checkout has new file times, which made
+          # Cargo rebuild all of WordCraft on every run.
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             engine/target
-          key: engine-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh') }}-${{ hashFiles('engine/src/**') }}
+            engine/vendor
+          key: engine2-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh') }}-${{ hashFiles('engine/src/**') }}
           restore-keys: |
-            engine-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh') }}-
+            engine2-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh') }}-
+            engine2-
             engine-
 
       - name: Engine (WordCraft) for iPhone and the simulator
@@ -72,7 +76,8 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             engine/target
-          key: engine-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh') }}-${{ hashFiles('engine/src/**') }}
+            engine/vendor
+          key: engine2-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh') }}-${{ hashFiles('engine/src/**') }}
 
       - name: Xcode project
         run: xcodegen generate
