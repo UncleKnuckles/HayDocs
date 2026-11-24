@@ -89,10 +89,18 @@ enum DocumentConverter {
         }
 
         let output = work.appendingPathComponent("document.pdf")
-        let report = try await WordEngine.shared.convert(WordEngine.Request(input: input, output: output))
+        var report = try await WordEngine.shared.convert(WordEngine.Request(input: input, output: output))
+        if kind == .text {
+            // A plain text file names no fonts: the engine's default font missing is not the user's concern.
+            report.missingFonts = []
+        }
         let data = try Data(contentsOf: output)
         guard let document = PDFDocument(data: data), document.pageCount > 0 else { throw ConversionError.empty }
-        TestHooks.dump("engine-\(url.deletingPathExtension().lastPathComponent).pdf", data: data)
+        if TestHooks.dumpEnabled {
+            let name = "engine-\(url.deletingLastPathComponent().lastPathComponent.prefix(8))-\(url.lastPathComponent).pdf"
+            TestHooks.dump(name, data: data)
+            Log.info("engine dump \(name)")
+        }
         return ConversionResult(pdfData: data, notes: notes + report.notes)
     }
 }

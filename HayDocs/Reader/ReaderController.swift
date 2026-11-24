@@ -123,6 +123,27 @@ final class ReaderController: NSObject, ObservableObject {
         pdfView.document = document
         pageCount = document.pageCount
         currentPage = 0
+        fixScrollInsets()
+    }
+
+    /// PDFView's own scroll view adds the navigation bar height on top of the first page
+    /// (the view already sits below the bar), which left a wide gray gap above page 1.
+    private func fixScrollInsets() {
+        func scrollView(in view: UIView) -> UIScrollView? {
+            for sub in view.subviews {
+                if let scroll = sub as? UIScrollView { return scroll }
+                if let found = scrollView(in: sub) { return found }
+            }
+            return nil
+        }
+        guard let scroll = scrollView(in: pdfView) else { return }
+        scroll.contentInsetAdjustmentBehavior = .never
+        if TestHooks.dumpEnabled {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                guard let self else { return }
+                Log.info("reader scroll: offset \(scroll.contentOffset), inset \(scroll.contentInset), adjusted \(scroll.adjustedContentInset), safe area \(self.pdfView.safeAreaInsets), frame \(scroll.frame)")
+            }
+        }
     }
 
     func makeContainer() -> UIView {
@@ -146,6 +167,7 @@ final class ReaderController: NSObject, ObservableObject {
         thumbnailsHeight = height
         container = view
         updateThumbnails()
+        DispatchQueue.main.async { [weak self] in self?.fixScrollInsets() }
         return view
     }
 
@@ -168,6 +190,7 @@ final class ReaderController: NSObject, ObservableObject {
         pdfView.displaysAsBook = on
         pdfView.displayMode = on ? .twoUpContinuous : .singlePageContinuous
         pdfView.autoScales = true
+        fixScrollInsets()
         if let page { pdfView.go(to: page) }
     }
 

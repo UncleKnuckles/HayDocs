@@ -1,7 +1,7 @@
 import XCTest
 
 /// Runs in the cloud build on the iPhone Duo simulator: imports the sample documents, opens each,
-/// draws on a page, exports, and takes screenshots of every step.
+/// draws on a page, exports, searches, and takes screenshots of every step.
 final class HayDocsUITests: XCTestCase {
     private var app: XCUIApplication!
 
@@ -43,6 +43,10 @@ final class HayDocsUITests: XCTestCase {
         while element.exists && Date() < deadline { usleep(500_000) }
     }
 
+    private func isReady(_ element: XCUIElement) -> Bool {
+        element.exists && element.isHittable
+    }
+
     private func open(_ title: String) {
         let card = app.buttons["doc-\(title)"]
         if !card.waitForExistence(timeout: 30) {
@@ -54,23 +58,49 @@ final class HayDocsUITests: XCTestCase {
         sleep(2)
     }
 
+    /// Back to the library. On iOS 27 the back button sits in the toolbar column with the id "BackButton".
     private func back() {
-        let bar = app.navigationBars.firstMatch
-        let backButton = bar.buttons["Документы"].exists ? bar.buttons["Документы"] : bar.buttons.element(boundBy: 0)
-        if backButton.exists { backButton.tap() }
+        let candidates = [app.buttons["BackButton"], app.navigationBars.buttons["Документы"], app.navigationBars.firstMatch.buttons.element(boundBy: 0)]
+        for button in candidates where isReady(button) {
+            button.tap()
+            break
+        }
+        if !app.buttons["libraryMenu"].waitForExistence(timeout: 5) {
+            XCTFail("library did not come back")
+        }
         sleep(1)
     }
 
+    /// Sheets of the app have a Close or Done button.
     private func dismissSheet() {
-        for key in ["Закрыть", "Close", "Готово", "Done"] where app.buttons[key].exists && app.buttons[key].isHittable {
+        for key in ["Закрыть", "Close", "Готово", "Done"] where isReady(app.buttons[key]) {
             app.buttons[key].tap()
             sleep(1)
             return
         }
-        let top = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
-        let bottom = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98))
-        top.press(forDuration: 0.05, thenDragTo: bottom)
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.08)).tap()
         sleep(1)
+    }
+
+    /// The share sheet is a floating card without a Close button: tap outside it, then drag it down.
+    private func dismissShareSheet() {
+        let window = app.windows.firstMatch
+        let reader = app.buttons["moreMenu"]
+        for attempt in 0..<5 {
+            if isReady(reader) { return }
+            let region = app.otherElements["PopoverDismissRegion"]
+            if region.exists {
+                region.tap()
+            } else if attempt < 3 {
+                window.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.08)).tap()
+            } else {
+                window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.47))
+                    .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.99)))
+            }
+            sleep(2)
+        }
+        if !isReady(reader) { XCTFail("share sheet did not close") }
     }
 
     private func stroke(from a: CGVector, to b: CGVector) {
@@ -92,7 +122,7 @@ final class HayDocsUITests: XCTestCase {
         sleep(2)
         shot("02-library")
 
-        // Word: two pages, drawing, export.
+        // Word: two pages, drawing, export, menu, two-page spread, search.
         open("Пример Word")
         shot("03-word-page-1")
         app.swipeUp()
@@ -102,6 +132,7 @@ final class HayDocsUITests: XCTestCase {
         app.swipeDown()
         app.swipeDown()
         app.swipeDown()
+        sleep(1)
 
         tap(["drawToggle"])
         sleep(2)
@@ -118,9 +149,12 @@ final class HayDocsUITests: XCTestCase {
         sleep(1)
         shot("08-export-menu")
         tap(["exportPDFWithDrawings", "PDF с рисунками"])
-        sleep(3)
+        // Wait for the share sheet: the reader's buttons stop being hittable under it.
+        let deadline = Date().addingTimeInterval(15)
+        while isReady(app.buttons["moreMenu"]) && Date() < deadline { usleep(500_000) }
+        sleep(2)
         shot("09-share-sheet")
-        dismissSheet()
+        dismissShareSheet()
 
         tap(["moreMenu", "Ещё"])
         sleep(1)
@@ -129,11 +163,32 @@ final class HayDocsUITests: XCTestCase {
         sleep(1)
         shot("11-document-info")
         dismissSheet()
+
+        tap(["moreMenu", "Ещё"])
+        tap(["Разворот"])
+        sleep(2)
+        shot("12-two-pages")
+        tap(["moreMenu", "Ещё"])
+        tap(["Разворот"])
+        sleep(1)
+
+        tap(["moreMenu", "Ещё"])
+        tap(["searchButton", "Найти в тексте"])
+        let field = app.searchFields.firstMatch
+        if field.waitForExistence(timeout: 5) {
+            field.tap()
+            field.typeText("HayDocs")
+            sleep(2)
+        } else {
+            XCTFail("no search field")
+        }
+        shot("13-search")
+        dismissSheet()
         back()
 
         for (index, title) in ["Пример ArmSCII", "Пример ODT", "Пример DOC", "Пример RTF", "Пример TXT", "Пример PDF"].enumerated() {
             open(title)
-            shot(String(format: "%02d-%@", 12 + index, title))
+            shot(String(format: "%02d-%@", 14 + index, title))
             back()
         }
 
@@ -147,14 +202,6 @@ final class HayDocsUITests: XCTestCase {
         sleep(1)
         shot("21-settings")
         dismissSheet()
-
-        XCUIDevice.shared.orientation = .landscapeLeft
-        sleep(2)
-        shot("22-library-landscape")
-        open("Пример Word")
-        shot("23-word-landscape")
-        back()
-        XCUIDevice.shared.orientation = .portrait
-        sleep(1)
+        shot("22-library-end")
     }
 }

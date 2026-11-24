@@ -99,7 +99,8 @@ final class FontLibrary: ObservableObject {
         } else {
             // Already registered (or a system font of the same name): still usable by name.
             registeredFiles.insert(file)
-            if let e = error?.takeRetainedValue() {
+            // 105 already registered, 305 same name as a registered font: expected, not worth a log line.
+            if let e = error?.takeRetainedValue(), ![105, 305].contains(CFErrorGetCode(e)) {
                 Log.info("font register \(file.lastPathComponent): \(e)")
             }
         }
