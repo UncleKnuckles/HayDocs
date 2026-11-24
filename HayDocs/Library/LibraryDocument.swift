@@ -31,13 +31,13 @@ enum DocumentKind: String, Codable, CaseIterable {
     static func detect(fileExtension ext: String) -> DocumentKind? {
         switch ext.lowercased() {
         case "pdf": return .pdf
-        case "doc", "docx", "docm", "dot", "dotx", "dotm", "wps", "pages": return .word
+        case "doc", "docx", "docm", "dot", "dotx", "dotm": return .word
         case "odt", "ott", "fodt": return .odt
         case "rtf": return .rtf
         case "txt", "text", "md", "markdown", "csv", "log": return .text
         case "htm", "html", "xhtml": return .html
-        case "xls", "xlsx", "xlsm", "numbers": return .spreadsheet
-        case "ppt", "pptx", "pps", "ppsx", "key": return .presentation
+        case "xls", "xlsx", "xlsm": return .spreadsheet
+        case "ppt", "pptx", "pps", "ppsx": return .presentation
         case "jpg", "jpeg", "png", "heic", "heif", "gif", "bmp", "tif", "tiff", "webp":
             return .image
         default: return nil

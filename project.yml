@@ -20,6 +20,7 @@ targets:
       - path: HayDocs
         excludes:
           - "**/*.h"
+          - "Info.plist"
       - path: Resources/Assets.xcassets
       - path: Resources/Fonts
         type: folder
