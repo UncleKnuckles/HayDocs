@@ -1,0 +1,104 @@
+name: Build HayDocs
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "README.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: xcode-27
+    timeout-minutes: 150
+    env:
+      RUST_TOOLCHAIN: "1.97.0"
+      IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: |
+          mkdir -p build
+          { sw_vers; xcodebuild -version; uname -m; xcrun --show-sdk-version --sdk iphoneos; } | tee build/tools.txt
+          command -v rustup >/dev/null || curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --target aarch64-apple-ios --target aarch64-apple-ios-sim
+          rustup default "$RUST_TOOLCHAIN"
+          rustc --version | tee -a build/tools.txt
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen --version | tee -a build/tools.txt
+
+      - name: Restore the engine build
+        id: engine-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            engine/target
+          key: engine-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh') }}-${{ hashFiles('engine/src/**') }}
+          restore-keys: |
+            engine-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh') }}-
+            engine-
+
+      - name: Engine (WordCraft) for iPhone and the simulator
+        run: |
+          set -o pipefail
+          sh engine/fetch-wordcraft.sh
+          cd engine
+          cargo build --release --lib --locked --target aarch64-apple-ios 2>&1 | tee ../build/engine-ios.log | grep -E "^error|Finished|Compiling haydocs" || true
+          cargo build --release --lib --locked --target aarch64-apple-ios-sim 2>&1 | tee ../build/engine-sim.log | grep -E "^error|Finished|Compiling haydocs" || true
+          mkdir -p build/ios build/ios-sim
+          cp target/aarch64-apple-ios/release/libhaydocs_engine.a build/ios/
+          cp target/aarch64-apple-ios-sim/release/libhaydocs_engine.a build/ios-sim/
+          ls -la build/ios build/ios-sim | tee -a ../build/tools.txt
+
+      - name: Save the engine build
+        if: steps.engine-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            engine/target
+          key: engine-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh') }}-${{ hashFiles('engine/src/**') }}
+
+      - name: Xcode project
+        run: xcodegen generate
+
+      - name: Build the app for iPhone (unsigned .ipa for Sideloadly)
+        run: |
+          set -o pipefail
+          xcodebuild -project HayDocs.xcodeproj -scheme HayDocs -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath build/device \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} build 2>&1 | tee build/device.log | xcbeautify --quiet
+          mkdir -p build/ipa/Payload
+          cp -R build/device/Build/Products/Release-iphoneos/HayDocs.app build/ipa/Payload/
+          (cd build/ipa && zip -qry ../HayDocs.ipa Payload)
+          ls -la build/HayDocs.ipa | tee -a build/tools.txt
+
+      - name: UI test on the iPhone Duo simulator
+        continue-on-error: true
+        run: sh ci/uitest.sh
+
+      - name: Collect results
+        if: always()
+        run: sh ci/collect.sh
+
+      - name: Publish results and the .ipa
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh ci/publish.sh

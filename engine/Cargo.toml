@@ -1,0 +1,35 @@
+[package]
+name = "haydocs-engine"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+description = "Turns Word, OpenDocument, RTF, HTML, Markdown and text files into PDF for HayDocs (WordCraft engine, C interface)"
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[[bin]]
+name = "hd-convert"
+path = "src/bin/hd-convert.rs"
+
+[dependencies]
+# WordCraft (storytold/wordcraft, MIT OR Apache-2.0), fetched by fetch-wordcraft.sh at the
+# commit named there.
+wordcraft-engine = { path = "vendor/wordcraft/crates/engine" }
+wordcraft-doc = { path = "vendor/wordcraft/crates/doc" }
+wordcraft-fonts = { path = "vendor/wordcraft/crates/fonts" }
+wordcraft-geom = { path = "vendor/wordcraft/crates/geom" }
+serde_json = "1"
+
+# The same release profile as WordCraft's own.
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 16
+debug = 0
+
+# WordCraft's patch that the engine needs (Cargo does not carry patches over to dependents): its
+# PDF writer from craft-libs.
+[patch.crates-io]
+krilla = { git = "https://github.com/storytold/craft-libs", rev = "b436ae992591173ce53fdb1314421ba2d8897e49" }
