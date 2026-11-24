@@ -71,16 +71,22 @@ final class HayDocsUITests: XCTestCase {
         sleep(1)
     }
 
-    /// Sheets of the app have a Close or Done button.
-    private func dismissSheet() {
-        for key in ["Закрыть", "Close", "Готово", "Done"] where isReady(app.buttons[key]) {
-            app.buttons[key].tap()
+    /// Closes a sheet of the app (Done or Close button; a search field may hide them until cancelled)
+    /// until `ready`, an element of the screen under the sheet, can be tapped again.
+    private func dismissSheet(until ready: XCUIElement) {
+        for _ in 0..<5 {
+            if isReady(ready) { return }
+            let keys = ["Готово", "Done", "Закрыть", "Close", "Отменить", "Cancel"]
+            if let button = keys.map({ app.buttons[$0] }).first(where: { isReady($0) }) {
+                button.tap()
+            } else if app.keyboards.firstMatch.exists {
+                app.typeText("\n")
+            } else {
+                app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.08)).tap()
+            }
             sleep(1)
-            return
         }
-        let window = app.windows.firstMatch
-        window.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.08)).tap()
-        sleep(1)
+        if !isReady(ready) { XCTFail("sheet did not close") }
     }
 
     /// The share sheet is a floating card without a Close button: tap outside it, then drag it down.
@@ -162,7 +168,7 @@ final class HayDocsUITests: XCTestCase {
         tap(["О документе"])
         sleep(1)
         shot("11-document-info")
-        dismissSheet()
+        dismissSheet(until: app.buttons["moreMenu"])
 
         tap(["moreMenu", "Ещё"])
         tap(["Разворот"])
@@ -183,7 +189,16 @@ final class HayDocsUITests: XCTestCase {
             XCTFail("no search field")
         }
         shot("13-search")
-        dismissSheet()
+        // Tapping a result closes the search and shows the found text on its page.
+        let found = NSPredicate(format: "label BEGINSWITH 'Стр.'")
+        let button = app.buttons.matching(found).firstMatch
+        let hit = button.waitForExistence(timeout: 5) ? button : app.staticTexts.matching(found).firstMatch
+        if hit.exists && hit.isHittable {
+            hit.tap()
+            sleep(2)
+            shot("13b-search-hit")
+        }
+        dismissSheet(until: app.buttons["moreMenu"])
         back()
 
         for (index, title) in ["Пример ArmSCII", "Пример ODT", "Пример DOC", "Пример RTF", "Пример TXT", "Пример PDF"].enumerated() {
@@ -196,12 +211,12 @@ final class HayDocsUITests: XCTestCase {
         tap(["openFonts", "Шрифты"])
         sleep(2)
         shot("20-fonts")
-        dismissSheet()
+        dismissSheet(until: app.buttons["libraryMenu"])
         tap(["libraryMenu"])
         tap(["openSettings", "Настройки"])
         sleep(1)
         shot("21-settings")
-        dismissSheet()
+        dismissSheet(until: app.buttons["libraryMenu"])
         shot("22-library-end")
     }
 }

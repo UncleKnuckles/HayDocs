@@ -187,8 +187,13 @@ final class ReaderController: NSObject, ObservableObject {
     func setTwoPages(_ on: Bool) {
         twoPages = on
         let page = pdfView.currentPage
-        pdfView.displaysAsBook = on
+        // Pages 1 and 2 side by side, as in Word and Preview (no lone cover page), then fit the new
+        // width: PDFView keeps the old scale when only the display mode changes.
+        pdfView.autoScales = false
+        pdfView.displaysAsBook = false
         pdfView.displayMode = on ? .twoUpContinuous : .singlePageContinuous
+        pdfView.layoutDocumentView()
+        pdfView.scaleFactor = pdfView.scaleFactorForSizeToFit
         pdfView.autoScales = true
         fixScrollInsets()
         if let page { pdfView.go(to: page) }
