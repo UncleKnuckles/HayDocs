@@ -101,7 +101,7 @@ final class Probe: NSObject, WKNavigationDelegate {
         // QLPreviewController, as Files, Mail and WhatsApp show a document: one-page letters only
         // (the whole page fits on the screen).
         var n = 0
-        for file in files where file.lastPathComponent.hasPrefix("r1_R1_") {
+        for file in files where file.lastPathComponent.hasPrefix("s1_") || file.lastPathComponent.hasPrefix("s3_") {
             n += 1
             await quickLook(file, n: n)
         }
