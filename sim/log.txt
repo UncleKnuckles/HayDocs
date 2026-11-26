@@ -1,0 +1,7 @@
+docs: 2 in /Users/runner/Library/Developer/CoreSimulator/Devices/6258D2C3-165A-44AB-BB24-00C7C434F5C8/data/Containers/Bundle/Application/DCCF1B46-3888-4AFF-95D6-D28589CE1B4B/Probe.app/docs
+window: (0.0, 0.0, 466.0, 678.0), scale 3.0, iOS 27.2
+p3_pictures_after_text_fitted: ok
+p3_pictures_after_text_fitted: zoom 0.6420168280601501 content (382.0, 1375.0)
+p4_pictures_mixed_sizes: ok
+p4_pictures_mixed_sizes: zoom 0.6420168280601501 content (382.0, 1364.6666666666667)
+done
