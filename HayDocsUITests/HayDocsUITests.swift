@@ -180,6 +180,10 @@ final class HayDocsUITests: XCTestCase {
         shot("05-drawing-tools")
         stroke(from: CGVector(dx: 0.25, dy: 0.40), to: CGVector(dx: 0.75, dy: 0.46))
         stroke(from: CGVector(dx: 0.30, dy: 0.55), to: CGVector(dx: 0.70, dy: 0.50))
+        // A signature under the flag: short strokes close together, saved as one picture.
+        stroke(from: CGVector(dx: 0.36, dy: 0.77), to: CGVector(dx: 0.44, dy: 0.72))
+        stroke(from: CGVector(dx: 0.44, dy: 0.72), to: CGVector(dx: 0.50, dy: 0.77))
+        stroke(from: CGVector(dx: 0.34, dy: 0.78), to: CGVector(dx: 0.58, dy: 0.775))
         sleep(1)
         shot("06-drawn")
         tap(["doneDrawing", "Готово"])

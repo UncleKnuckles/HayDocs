@@ -98,28 +98,32 @@ final class WordEngine: @unchecked Sendable {
     struct ExportAnswer {
         /// Pages of the original as the engine laid it out (0 without an original).
         var pages = 0
-        var strokes = 0
+        /// Drawings put in the text, and of them those placed on their page by its corner.
+        var drawings = 0
+        var onPages = 0
         /// Pages whose drawing could not be put on the page.
         var skippedPages: [Int] = []
     }
 
     /// Save as Word (.docx) or ODT, the extension of `output` says which. `input` is the
     /// original file, or nil for a document made only of `pictures` (whole pages, each
-    /// ["path", "width", "height"]); `strokes` are the Pencil strokes on the original's pages.
-    func export(input: URL?, output: URL, strokes: [[String: Any]], pictures: [[String: Any]], title: String) async throws -> ExportAnswer {
+    /// ["path", "width", "height"]). `drawings` are pictures of the Pencil drawing on the
+    /// original's pages, each ["page", "x", "y", "width", "height", "path", "behind"] in page
+    /// points from the page's top left corner: the engine ties each to the text under it.
+    func export(input: URL?, output: URL, drawings: [[String: Any]], pictures: [[String: Any]], title: String) async throws -> ExportAnswer {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 continuation.resume(with: Result {
-                    try self.exportNow(input: input, output: output, strokes: strokes, pictures: pictures, title: title)
+                    try self.exportNow(input: input, output: output, drawings: drawings, pictures: pictures, title: title)
                 })
             }
         }
     }
 
-    private func exportNow(input: URL?, output: URL, strokes: [[String: Any]], pictures: [[String: Any]], title: String) throws -> ExportAnswer {
+    private func exportNow(input: URL?, output: URL, drawings: [[String: Any]], pictures: [[String: Any]], title: String) throws -> ExportAnswer {
         var body = options(Request(input: input ?? output, output: output))
         if input == nil { body.removeValue(forKey: "input") }
-        body["strokes"] = strokes
+        body["drawings"] = drawings
         body["pictures"] = pictures
         body["title"] = title
         let json = try JSONSerialization.data(withJSONObject: body)
@@ -128,7 +132,7 @@ final class WordEngine: @unchecked Sendable {
         guard let raw = hd_export(text) else { throw EngineError.failed("no answer") }
         defer { hd_free(raw) }
         let answer = String(cString: raw)
-        Log.info("engine export \(output.lastPathComponent): \(answer) in \(String(format: "%.2f", Date().timeIntervalSince(started))) s, \(strokes.count) strokes, \(pictures.count) pictures")
+        Log.info("engine export \(output.lastPathComponent): \(answer) in \(String(format: "%.2f", Date().timeIntervalSince(started))) s, \(drawings.count) drawings, \(pictures.count) pictures")
         guard let data = answer.data(using: .utf8),
               let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw EngineError.failed(answer)
@@ -139,7 +143,8 @@ final class WordEngine: @unchecked Sendable {
             throw EngineError.failed(object["error"] as? String ?? answer)
         }
         return ExportAnswer(pages: object["pages"] as? Int ?? 0,
-                            strokes: object["strokes"] as? Int ?? 0,
+                            drawings: object["drawings"] as? Int ?? 0,
+                            onPages: object["onPages"] as? Int ?? 0,
                             skippedPages: object["skippedPages"] as? [Int] ?? [])
     }
 

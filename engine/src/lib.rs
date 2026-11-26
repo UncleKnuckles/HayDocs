@@ -53,16 +53,31 @@ impl Options {
     pub fn from_json(v: &Value) -> Options {
         let d = Options::default();
         let text = |key: &str, default: String| {
-            v.get(key).and_then(Value::as_str).map(str::trim).filter(|s| !s.is_empty()).map(String::from).unwrap_or(default)
+            v.get(key)
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(String::from)
+                .unwrap_or(default)
         };
         Options {
-            armscii: v.get("armscii").and_then(Value::as_bool).unwrap_or(d.armscii),
-            armenian_fallback: v.get("armenianFallback").and_then(Value::as_bool).unwrap_or(d.armenian_fallback),
+            armscii: v
+                .get("armscii")
+                .and_then(Value::as_bool)
+                .unwrap_or(d.armscii),
+            armenian_fallback: v
+                .get("armenianFallback")
+                .and_then(Value::as_bool)
+                .unwrap_or(d.armenian_fallback),
             serif: text("serif", d.serif),
             sans: text("sans", d.sans),
             mono: text("mono", d.mono),
             region: text("region", d.region),
-            password: v.get("password").and_then(Value::as_str).filter(|s| !s.is_empty()).map(String::from),
+            password: v
+                .get("password")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(String::from),
         }
     }
 }
@@ -97,7 +112,8 @@ pub fn add_font_files(paths: &[String]) -> usize {
 /// Open `input`, fix its Armenian text and write it as PDF to `output`.
 pub fn convert(input: &Path, output: &Path, opts: &Options) -> Result<Report, String> {
     let region = wordcraft_geom::Region::from_tag(&opts.region);
-    let (mut doc, _) = wordcraft_engine::io::open_path_in(input, opts.password.as_deref(), &region)?;
+    let (mut doc, _) =
+        wordcraft_engine::io::open_path_in(input, opts.password.as_deref(), &region)?;
     let report = prepare(&mut doc, opts);
     let bytes = wordcraft_engine::io::save_bytes("document.pdf", &doc)?;
     std::fs::write(output, bytes).map_err(|e| format!("{}: {e}", output.display()))?;
@@ -107,7 +123,8 @@ pub fn convert(input: &Path, output: &Path, opts: &Options) -> Result<Report, St
 /// The text of `input` (for checks).
 pub fn plain_text(input: &Path, opts: &Options) -> Result<String, String> {
     let region = wordcraft_geom::Region::from_tag(&opts.region);
-    let (mut doc, _) = wordcraft_engine::io::open_path_in(input, opts.password.as_deref(), &region)?;
+    let (mut doc, _) =
+        wordcraft_engine::io::open_path_in(input, opts.password.as_deref(), &region)?;
     prepare(&mut doc, opts);
     let bytes = wordcraft_engine::io::save_bytes("document.txt", &doc)?;
     Ok(String::from_utf8_lossy(&bytes).into_owned())
@@ -124,7 +141,9 @@ pub fn prepare(doc: &mut Document, opts: &Options) -> Report {
     stories.extend(doc.parts.keys().map(|k| StoryRef::Part(*k)));
     for story in stories {
         for path in doc.para_paths(story) {
-            let fixed = doc.para(story, &path).and_then(|p| fixed_paragraph(p, &styles, opts, &mut report));
+            let fixed = doc
+                .para(story, &path)
+                .and_then(|p| fixed_paragraph(p, &styles, opts, &mut report));
             if let Some((text, runs)) = fixed
                 && let Ok(p) = doc.para_mut(story, &path)
             {
@@ -138,11 +157,19 @@ pub fn prepare(doc: &mut Document, opts: &Options) -> Report {
 }
 
 /// The paragraph's new text and runs, or `None` when nothing changes.
-fn fixed_paragraph(p: &Paragraph, styles: &StyleSheet, opts: &Options, report: &mut Report) -> Option<(String, Vec<Run>)> {
+fn fixed_paragraph(
+    p: &Paragraph,
+    styles: &StyleSheet,
+    opts: &Options,
+    report: &mut Report,
+) -> Option<(String, Vec<Run>)> {
     if p.text.is_empty() {
         return None;
     }
-    let whole = [Run { len: p.text.len(), props: CharProps::default() }];
+    let whole = [Run {
+        len: p.text.len(),
+        props: CharProps::default(),
+    }];
     let runs: &[Run] = if p.runs.is_empty() { &whole } else { &p.runs };
     let para_style = p.props.style.as_deref();
     let mut text = String::with_capacity(p.text.len() + 16);
@@ -150,12 +177,19 @@ fn fixed_paragraph(p: &Paragraph, styles: &StyleSheet, opts: &Options, report: &
     let mut changed = false;
     let mut start = 0usize;
     for (i, run) in runs.iter().enumerate() {
-        let end = if i + 1 == runs.len() { p.text.len() } else { start.saturating_add(run.len).min(p.text.len()) };
+        let end = if i + 1 == runs.len() {
+            p.text.len()
+        } else {
+            start.saturating_add(run.len).min(p.text.len())
+        };
         // A run that doesn't end on a character boundary: leave the paragraph as it is.
         let slice = p.text.get(start..end)?;
         start = end;
         if slice.is_empty() {
-            out.push(Run { len: 0, props: run.props.clone() });
+            out.push(Run {
+                len: 0,
+                props: run.props.clone(),
+            });
             continue;
         }
         let resolved = styles.resolve_char(para_style, &run.props);
@@ -166,16 +200,27 @@ fn fixed_paragraph(p: &Paragraph, styles: &StyleSheet, opts: &Options, report: &
             let target = pick_family(&family, opts).to_string();
             let mut props = run.props.clone();
             props.font = Some(target.clone());
-            if props.font_cs.as_deref().is_some_and(armscii::is_legacy_font) {
+            if props
+                .font_cs
+                .as_deref()
+                .is_some_and(armscii::is_legacy_font)
+            {
                 props.font_cs = Some(target.clone());
             }
-            if props.font_ea.as_deref().is_some_and(armscii::is_legacy_font) {
+            if props
+                .font_ea
+                .as_deref()
+                .is_some_and(armscii::is_legacy_font)
+            {
                 props.font_ea = Some(target);
             }
             report.armscii_runs += 1;
             report.legacy_fonts.insert(family);
             text.push_str(&converted);
-            out.push(Run { len: converted.len(), props });
+            out.push(Run {
+                len: converted.len(),
+                props,
+            });
             changed = true;
             continue;
         }
@@ -193,7 +238,10 @@ fn fixed_paragraph(p: &Paragraph, styles: &StyleSheet, opts: &Options, report: &
                         props.font = Some(target.clone());
                     }
                     text.push_str(segment);
-                    out.push(Run { len: segment.len(), props });
+                    out.push(Run {
+                        len: segment.len(),
+                        props,
+                    });
                 }
                 report.fallback_runs += 1;
                 changed = true;
@@ -202,7 +250,10 @@ fn fixed_paragraph(p: &Paragraph, styles: &StyleSheet, opts: &Options, report: &
         }
 
         text.push_str(slice);
-        out.push(Run { len: slice.len(), props: run.props.clone() });
+        out.push(Run {
+            len: slice.len(),
+            props: run.props.clone(),
+        });
     }
     changed.then_some((text, out))
 }
@@ -217,14 +268,21 @@ fn is_neutral(c: char) -> bool {
     c.is_whitespace()
         || c.is_ascii_digit()
         || c.is_ascii_punctuation()
-        || matches!(c, '\u{00A0}' | '\u{00AB}' | '\u{00BB}' | '\u{2010}'..='\u{2027}')
+        || matches!(
+            c,
+            '\u{00A0}' | '\u{00AB}' | '\u{00BB}' | '\u{2010}'..='\u{2027}'
+        )
 }
 
 /// `s` cut into pieces that are Armenian (true) or not (false). Spaces, digits and punctuation
 /// join the piece before them (at the start, the piece after them).
 fn split_armenian(s: &str) -> Vec<(&str, bool)> {
     let chars: Vec<(usize, char)> = s.char_indices().collect();
-    let first = chars.iter().find(|(_, c)| !is_neutral(*c)).map(|(_, c)| is_armenian(*c)).unwrap_or(false);
+    let first = chars
+        .iter()
+        .find(|(_, c)| !is_neutral(*c))
+        .map(|(_, c)| is_armenian(*c))
+        .unwrap_or(false);
     let mut current = first;
     let mut out: Vec<(&str, bool)> = Vec::new();
     let mut piece_start = 0usize;
@@ -252,8 +310,29 @@ fn pick_family<'a>(family: &str, opts: &'a Options) -> &'a str {
     let f = family.to_ascii_lowercase();
     const MONO: &[&str] = &["courier", "mono", "consol", "code", "typewriter", "fixed"];
     const SERIF: &[&str] = &[
-        "times", "serif", "roman", "georgia", "garamond", "cambria", "caladea", "book", "grapalat", "sylfaen", "palatino", "baskerville",
-        "minion", "century", "bodoni", "mariam", "dallak time", "tarumiantimes", "tarumian times", "kamar", "mincho", "song", "cambo",
+        "times",
+        "serif",
+        "roman",
+        "georgia",
+        "garamond",
+        "cambria",
+        "caladea",
+        "book",
+        "grapalat",
+        "sylfaen",
+        "palatino",
+        "baskerville",
+        "minion",
+        "century",
+        "bodoni",
+        "mariam",
+        "dallak time",
+        "tarumiantimes",
+        "tarumian times",
+        "kamar",
+        "mincho",
+        "song",
+        "cambo",
     ];
     if MONO.iter().any(|k| f.contains(k)) {
         &opts.mono
@@ -278,7 +357,9 @@ fn read_c_string(s: *const c_char) -> Option<String> {
 
 fn into_c_string(v: Value) -> *mut c_char {
     let text = v.to_string().replace('\0', "");
-    CString::new(text).map(CString::into_raw).unwrap_or(std::ptr::null_mut())
+    CString::new(text)
+        .map(CString::into_raw)
+        .unwrap_or(std::ptr::null_mut())
 }
 
 fn panic_text(e: &Box<dyn std::any::Any + Send>) -> String {
@@ -291,9 +372,13 @@ fn panic_text(e: &Box<dyn std::any::Any + Send>) -> String {
 /// Add fonts: `paths_json` is a JSON array of file paths. Returns the number of faces added.
 #[unsafe(no_mangle)]
 pub extern "C" fn hd_add_fonts(paths_json: *const c_char) -> i32 {
-    let Some(json) = read_c_string(paths_json) else { return -1 };
+    let Some(json) = read_c_string(paths_json) else {
+        return -1;
+    };
     let paths: Vec<String> = serde_json::from_str(&json).unwrap_or_default();
-    let _guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _guard = LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     match catch_unwind(AssertUnwindSafe(|| add_font_files(&paths))) {
         Ok(n) => i32::try_from(n).unwrap_or(i32::MAX),
         Err(_) => -2,
@@ -307,14 +392,25 @@ pub extern "C" fn hd_add_fonts(paths_json: *const c_char) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn hd_convert(request_json: *const c_char) -> *mut c_char {
     let response = (|| {
-        let Some(json) = read_c_string(request_json) else { return json!({"ok": false, "error": "no request"}) };
-        let Ok(request) = serde_json::from_str::<Value>(&json) else { return json!({"ok": false, "error": "bad request"}) };
-        let (Some(input), Some(output)) = (request.get("input").and_then(Value::as_str), request.get("output").and_then(Value::as_str)) else {
+        let Some(json) = read_c_string(request_json) else {
+            return json!({"ok": false, "error": "no request"});
+        };
+        let Ok(request) = serde_json::from_str::<Value>(&json) else {
+            return json!({"ok": false, "error": "bad request"});
+        };
+        let (Some(input), Some(output)) = (
+            request.get("input").and_then(Value::as_str),
+            request.get("output").and_then(Value::as_str),
+        ) else {
             return json!({"ok": false, "error": "input and output are required"});
         };
         let opts = Options::from_json(&request);
-        let _guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        match catch_unwind(AssertUnwindSafe(|| convert(Path::new(input), Path::new(output), &opts))) {
+        let _guard = LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        match catch_unwind(AssertUnwindSafe(|| {
+            convert(Path::new(input), Path::new(output), &opts)
+        })) {
             Ok(Ok(r)) => json!({
                 "ok": true,
                 "armsciiRuns": r.armscii_runs,
@@ -336,27 +432,36 @@ pub extern "C" fn hd_convert(request_json: *const c_char) -> *mut c_char {
 
 /// Save a document as Word (.docx) or OpenDocument (.odt) with the Pencil drawings made over it.
 /// `request_json`: {"input"? (the original file; without it a document of pictures), "output",
-/// "strokes": [{"page", "tool": pen|pencil|highlighter, "color": "RRGGBB", "alpha", "width",
-/// "points": [[x, y], …]}] (page points from the page's top left), "pictures": [{"path",
-/// "width", "height"}] (pages added after the document's own), "title", and the options of
-/// `hd_convert`}. Returns JSON (free it with `hd_free`): {"ok": true, "pages", "strokes",
+/// "drawings": [{"page", "x", "y", "width", "height", "path", "behind"}] (pictures of the
+/// drawings, PNG with a see-through background, placed in page points from the page's top left;
+/// each is anchored to the text it was drawn on), "pictures": [{"path", "width", "height"}]
+/// (pages added after the document's own), "title", and the options of `hd_convert`}. Returns
+/// JSON (free it with `hd_free`): {"ok": true, "pages", "drawings", "onPages", "inCells",
 /// "skippedPages", "pictures"} or {"ok": false, "error", "needsPassword", "wrongPassword"}.
 #[unsafe(no_mangle)]
 pub extern "C" fn hd_export(request_json: *const c_char) -> *mut c_char {
     let response = (|| {
-        let Some(json) = read_c_string(request_json) else { return json!({"ok": false, "error": "no request"}) };
-        let Ok(request) = serde_json::from_str::<Value>(&json) else { return json!({"ok": false, "error": "bad request"}) };
+        let Some(json) = read_c_string(request_json) else {
+            return json!({"ok": false, "error": "no request"});
+        };
+        let Ok(request) = serde_json::from_str::<Value>(&json) else {
+            return json!({"ok": false, "error": "bad request"});
+        };
         let req = match export::ExportRequest::from_json(&request) {
             Ok(r) => r,
             Err(e) => return json!({"ok": false, "error": e}),
         };
         let opts = Options::from_json(&request);
-        let _guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _guard = LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         match catch_unwind(AssertUnwindSafe(|| export::export(&req, &opts))) {
             Ok(Ok(r)) => json!({
                 "ok": true,
                 "pages": r.pages,
-                "strokes": r.strokes,
+                "drawings": r.drawings,
+                "onPages": r.on_pages,
+                "inCells": r.in_cells,
                 "skippedPages": r.skipped_pages,
                 "pictures": r.pictures,
             }),
@@ -384,7 +489,9 @@ pub extern "C" fn hd_free(s: *mut c_char) {
 /// The engine's version, for the app's About line (a static string, don't free).
 #[unsafe(no_mangle)]
 pub extern "C" fn hd_version() -> *const c_char {
-    concat!("haydocs-engine ", env!("CARGO_PKG_VERSION"), "\0").as_ptr().cast()
+    concat!("haydocs-engine ", env!("CARGO_PKG_VERSION"), "\0")
+        .as_ptr()
+        .cast()
 }
 
 #[cfg(test)]
@@ -395,7 +502,16 @@ mod tests {
     fn splits_armenian_words_with_their_spaces() {
         let parts = split_armenian("HayDocs ծրագրի փորձ, PDF ու Word");
         let kinds: Vec<(&str, bool)> = parts;
-        assert_eq!(kinds, vec![("HayDocs ", false), ("ծրագրի փորձ, ", true), ("PDF ", false), ("ու ", true), ("Word", false)]);
+        assert_eq!(
+            kinds,
+            vec![
+                ("HayDocs ", false),
+                ("ծրագրի փորձ, ", true),
+                ("PDF ", false),
+                ("ու ", true),
+                ("Word", false)
+            ]
+        );
         assert_eq!(split_armenian("  Բարև"), vec![("  Բարև", true)]);
         assert_eq!(split_armenian("abc"), vec![("abc", false)]);
     }

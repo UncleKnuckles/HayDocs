@@ -5,7 +5,12 @@
 /// Whether `family` is one of the old 8-bit Armenian fonts.
 pub fn is_legacy_font(family: &str) -> bool {
     let f = family.trim().to_ascii_lowercase();
-    if f.is_empty() || f.starts_with("noto") || f.contains("unicode") || f.contains(" amu") || f.ends_with("amu") {
+    if f.is_empty()
+        || f.starts_with("noto")
+        || f.contains("unicode")
+        || f.contains(" amu")
+        || f.ends_with("amu")
+    {
         return false;
     }
     f.contains("armenian")
@@ -42,7 +47,11 @@ pub fn map_char(c: char) -> char {
         0xB1 => 0x055E, // ՞
         0xB2..=0xFD => {
             let i = (cp - 0xB2) / 2;
-            if (cp - 0xB2) % 2 == 0 { 0x0531 + i } else { 0x0561 + i }
+            if (cp - 0xB2) % 2 == 0 {
+                0x0531 + i
+            } else {
+                0x0561 + i
+            }
         }
         0xFE => 0x055A, // ՚
         _ => return c,
@@ -75,10 +84,23 @@ mod tests {
 
     #[test]
     fn legacy_font_names() {
-        for f in ["Arial Armenian", "Times Armenian", "ArTarumianTimes", "Arial LatArm", "Dallak Helv"] {
+        for f in [
+            "Arial Armenian",
+            "Times Armenian",
+            "ArTarumianTimes",
+            "Arial LatArm",
+            "Dallak Helv",
+        ] {
             assert!(is_legacy_font(f), "{f}");
         }
-        for f in ["Noto Sans Armenian", "Arial AMU", "GHEA Grapalat", "Sylfaen", "Calibri", ""] {
+        for f in [
+            "Noto Sans Armenian",
+            "Arial AMU",
+            "GHEA Grapalat",
+            "Sylfaen",
+            "Calibri",
+            "",
+        ] {
             assert!(!is_legacy_font(f), "{f}");
         }
     }

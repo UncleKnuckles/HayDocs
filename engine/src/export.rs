@@ -2,44 +2,59 @@
 //! its pages.
 //!
 //! A document the engine made the pages of (Word, ODT, RTF, text…) is opened again and laid out
-//! as its PDF was, and each ink stroke becomes a freeform ink shape on its page, over the text
-//! (a highlighter behind it), so the text stays text and the ink stays ink that Word and
-//! LibreOffice can move or delete. Pages that have no text to put the ink on (pages added in
-//! the app, PDF pages, photos and scans) come from the app as pictures with the ink drawn in
-//! and become whole pages: after the text, or the whole document when there is no text.
+//! as its PDF was. The app gives each group of strokes drawn close together (a signature, a note,
+//! a circle round a word) as one picture with a see-through background, and each picture is
+//! anchored to the text it was drawn on: the nearest paragraph that starts on that page, or the
+//! table cell it is in, at the offsets that put it exactly where it was drawn. Word, LibreOffice
+//! or a phone may lay the text out differently (other fonts, other page breaks); a signature then
+//! moves with its line instead of staying at a place on the page over other text.
+//!
+//! The document keeps its own fonts: the Armenian fonts the PDF uses in their place only serve to
+//! find where the lines were in the app. Old ArmSCII text is turned into Unicode as for the PDF.
+//!
+//! Pages that have no text to put drawings on (pages added in the app, PDF pages, photos and
+//! scans) come from the app as pictures with the ink drawn in and become whole pages: after the
+//! text, or the whole document when there is no text.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde_json::Value;
-use wordcraft_doc::freeform::{Freeform, InkTool, MAX_INK_PER_PAGE, MAX_POINTS};
-use wordcraft_doc::para::{Anchor, Float, ShapeKind, Wrap};
+use wordcraft_doc::para::{Anchor, COLUMN_BREAK, Float, PAGE_BREAK, Wrap};
 use wordcraft_doc::section::SectionStart;
-use wordcraft_doc::{CharProps, Document, InlineObject, Paragraph, Pos, Rgb, SectionProps, StoryRef};
-use wordcraft_engine::layout::{DocLayout, LayoutCache, LayoutOptions, Placed};
+use wordcraft_doc::{CharProps, Document, InlineObject, Paragraph, Pos, SectionProps, StoryRef};
+use wordcraft_engine::layout::{DocLayout, LayoutCache, LayoutOptions, LineEnd, Placed};
+use wordcraft_geom::{Point, Rect};
 
 use crate::{Options, Report, prepare};
 
-/// Widths a stroke may have, points (the engine's own Draw tab limits).
-const MIN_WIDTH: f32 = 0.25;
-const MAX_WIDTH: f32 = 72.0;
 /// Pictures larger than this are not read.
 const MAX_PICTURE: u64 = 64 << 20;
-/// Pages and strokes one request may carry.
+/// Pages and drawings one request may carry.
 const MAX_PAGES: usize = 2_000;
-const MAX_STROKES: usize = 200_000;
+const MAX_DRAWINGS: usize = 5_000;
+/// The largest side of a drawing or a page, points.
+const MAX_SIDE: f32 = 4_000.0;
+/// How much farther than the nearest text a paragraph that starts on the page may be and still
+/// hold a drawing, and how far below the paragraph's top the drawing's middle may be (points).
+/// Farther, the drawing is placed on the page by the nearest line instead: an offset that large
+/// from a paragraph would carry the drawing off the page when other fonts move the paragraph.
+const PARAGRAPH_REACH: f32 = 48.0;
+const PARAGRAPH_DEPTH: f32 = 160.0;
 
-/// One ink stroke, in page points from the page's top left corner.
+/// A drawing: a picture (PNG with a see-through background) laid over page `page` at (`x`, `y`),
+/// `w` × `h` points, from the page's top left corner.
 #[derive(Clone, Debug)]
-pub struct Stroke {
+pub struct Drawing {
     /// Page index, from 0, in the document's PDF.
     pub page: usize,
-    pub tool: InkTool,
-    pub color: Rgb,
-    /// Opacity 0–1.
-    pub alpha: f32,
-    pub width: f32,
-    pub points: Vec<[f32; 2]>,
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+    pub path: PathBuf,
+    /// Behind the text (highlighter marks), else in front of it.
+    pub behind: bool,
 }
 
 /// A page given as a picture (PNG or JPEG), `w` × `h` points.
@@ -56,7 +71,7 @@ pub struct ExportRequest {
     pub input: Option<PathBuf>,
     /// `.docx` or `.odt` (the extension picks the format).
     pub output: PathBuf,
-    pub strokes: Vec<Stroke>,
+    pub drawings: Vec<Drawing>,
     /// Pages added after the document's own pages (or all pages, without `input`).
     pub pictures: Vec<PagePicture>,
     /// Title for a document made of pictures.
@@ -68,24 +83,41 @@ pub struct ExportRequest {
 pub struct ExportReport {
     /// Pages of the original document as laid out (0 without one).
     pub pages: usize,
-    /// Strokes put on the pages.
-    pub strokes: usize,
-    /// Pages whose strokes could not be put on them (no such page, or no text there to hold them).
+    /// Drawings put on the pages.
+    pub drawings: usize,
+    /// Of them, those placed on the page by a word of a paragraph that began on an earlier page,
+    /// and those anchored in a table cell.
+    pub on_pages: usize,
+    pub in_cells: usize,
+    /// Pages whose drawings could not be put on them (no such page, or no text there to hold them).
     pub skipped_pages: Vec<usize>,
     pub pictures: usize,
-    /// The Armenian fixes, as for the PDF.
+    /// The Armenian fixes made to the saved text.
     pub fixes: Report,
 }
 
 impl ExportRequest {
     /// From the app's JSON (see `hd_export`).
     pub fn from_json(v: &Value) -> Result<ExportRequest, String> {
-        let output = v.get("output").and_then(Value::as_str).filter(|s| !s.is_empty()).ok_or("output is required")?;
-        let input = v.get("input").and_then(Value::as_str).filter(|s| !s.is_empty()).map(PathBuf::from);
-        let strokes = v
-            .get("strokes")
+        let output = v
+            .get("output")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .ok_or("output is required")?;
+        let input = v
+            .get("input")
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+            .map(PathBuf::from);
+        let drawings = v
+            .get("drawings")
             .and_then(Value::as_array)
-            .map(|a| a.iter().take(MAX_STROKES).filter_map(stroke_from_json).collect())
+            .map(|a| {
+                a.iter()
+                    .take(MAX_DRAWINGS)
+                    .filter_map(drawing_from_json)
+                    .collect()
+            })
             .unwrap_or_default();
         let pictures = v
             .get("pictures")
@@ -97,43 +129,65 @@ impl ExportRequest {
                         let path = p.get("path").and_then(Value::as_str)?;
                         let w = p.get("width").and_then(Value::as_f64)? as f32;
                         let h = p.get("height").and_then(Value::as_f64)? as f32;
-                        (w.is_finite() && h.is_finite() && w >= 1.0 && h >= 1.0).then(|| PagePicture {
-                            path: PathBuf::from(path),
-                            w: w.min(1584.0),
-                            h: h.min(1584.0),
+                        (w.is_finite() && h.is_finite() && w >= 1.0 && h >= 1.0).then(|| {
+                            PagePicture {
+                                path: PathBuf::from(path),
+                                w: w.min(1584.0),
+                                h: h.min(1584.0),
+                            }
                         })
                     })
                     .collect()
             })
             .unwrap_or_default();
-        let title = v.get("title").and_then(Value::as_str).unwrap_or_default().to_string();
-        Ok(ExportRequest { input, output: PathBuf::from(output), strokes, pictures, title })
+        let title = v
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        Ok(ExportRequest {
+            input,
+            output: PathBuf::from(output),
+            drawings,
+            pictures,
+            title,
+        })
     }
 }
 
-fn stroke_from_json(v: &Value) -> Option<Stroke> {
+fn drawing_from_json(v: &Value) -> Option<Drawing> {
     let page = usize::try_from(v.get("page")?.as_u64()?).ok()?;
-    let tool = v.get("tool").and_then(Value::as_str).and_then(InkTool::parse).unwrap_or(InkTool::Pen);
-    let color = v.get("color").and_then(Value::as_str).and_then(Rgb::parse).unwrap_or(Rgb(0, 0, 0));
-    let alpha = v.get("alpha").and_then(Value::as_f64).map(|a| a as f32).filter(|a| a.is_finite()).unwrap_or_else(|| tool.alpha());
-    let width = v.get("width").and_then(Value::as_f64).map(|w| w as f32).filter(|w| w.is_finite()).unwrap_or_else(|| tool.default_width());
-    let points: Vec<[f32; 2]> = v
-        .get("points")?
-        .as_array()?
-        .iter()
-        .filter_map(|p| {
-            let a = p.as_array()?;
-            let (x, y) = (a.first()?.as_f64()? as f32, a.get(1)?.as_f64()? as f32);
-            (x.is_finite() && y.is_finite()).then_some([x, y])
-        })
-        .collect();
-    (!points.is_empty()).then_some(Stroke { page, tool, color, alpha: alpha.clamp(0.05, 1.0), width: width.clamp(MIN_WIDTH, MAX_WIDTH), points })
+    let num = |key: &str| {
+        v.get(key)
+            .and_then(Value::as_f64)
+            .map(|n| n as f32)
+            .filter(|n| n.is_finite())
+    };
+    let (x, y, w, h) = (num("x")?, num("y")?, num("width")?, num("height")?);
+    let path = v
+        .get("path")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())?;
+    let behind = v.get("behind").and_then(Value::as_bool).unwrap_or(false);
+    (w >= 0.1 && h >= 0.1).then(|| Drawing {
+        page,
+        x: x.clamp(-MAX_SIDE, MAX_SIDE),
+        y: y.clamp(-MAX_SIDE, MAX_SIDE),
+        w: w.min(MAX_SIDE),
+        h: h.min(MAX_SIDE),
+        path: PathBuf::from(path),
+        behind,
+    })
 }
 
 /// Make the document `req` asks for and write it.
 pub fn export(req: &ExportRequest, opts: &Options) -> Result<ExportReport, String> {
     let name = req.output.to_string_lossy().to_string();
-    let ext = name.rsplit('.').next().unwrap_or_default().to_ascii_lowercase();
+    let ext = name
+        .rsplit('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
     if !matches!(ext.as_str(), "docx" | "odt") {
         return Err(format!("{name}: only .docx and .odt are made here"));
     }
@@ -141,8 +195,16 @@ pub fn export(req: &ExportRequest, opts: &Options) -> Result<ExportReport, Strin
     let mut doc = match &req.input {
         Some(input) => {
             let region = wordcraft_geom::Region::from_tag(&opts.region);
-            let (mut doc, _) = wordcraft_engine::io::open_path_in(input, opts.password.as_deref(), &region)?;
-            report.fixes = prepare(&mut doc, opts);
+            let (mut doc, _) =
+                wordcraft_engine::io::open_path_in(input, opts.password.as_deref(), &region)?;
+            // The text as the app shows it (ArmSCII turned into Unicode), in the document's fonts.
+            report.fixes = prepare(
+                &mut doc,
+                &Options {
+                    armenian_fallback: false,
+                    ..opts.clone()
+                },
+            );
             doc
         }
         None => {
@@ -153,181 +215,513 @@ pub fn export(req: &ExportRequest, opts: &Options) -> Result<ExportReport, Strin
     };
 
     if req.input.is_some() {
-        let layout = pdf_layout(&doc);
+        // Laid out as the app's PDF is: with the Armenian fonts in place of those without
+        // Armenian letters. That changes fonts only, so places in the text stay the same.
+        let shown = Options {
+            armscii: false,
+            ..opts.clone()
+        };
+        let lay = |d: &Document| {
+            let mut d = d.clone();
+            prepare(&mut d, &shown);
+            pdf_layout(&d)
+        };
+        let layout = lay(&doc);
         report.pages = layout.pages.len();
-        let (placed, skipped) = put_ink(&mut doc, &layout, &req.strokes);
-        report.strokes = placed;
-        report.skipped_pages = skipped;
+        put_drawings(&mut doc, &layout, &req.drawings, &lay, &mut report);
     } else {
-        report.skipped_pages = pages_of(&req.strokes);
+        report.skipped_pages = pages_of(&req.drawings);
     }
 
     report.pictures = add_picture_pages(&mut doc, &req.pictures, req.input.is_none())?;
+    if ext == "odt" {
+        keep_normal_font(&mut doc);
+    }
     let bytes = wordcraft_engine::io::save_bytes(&format!("document.{ext}"), &doc)?;
     std::fs::write(&req.output, bytes).map_err(|e| format!("{}: {e}", req.output.display()))?;
     Ok(report)
 }
 
+/// The ODT writer gives the default paragraph style ("Standard") the document defaults' font, so
+/// a font set on Normal itself (the usual way: "GHEA Grapalat" for a whole document) would be
+/// lost and the text shown in the theme font. Normal's font becomes the defaults' font.
+fn keep_normal_font(doc: &mut Document) {
+    let normal = doc.styles.resolve_char(None, &CharProps::default()).font;
+    if !normal.trim().is_empty() && doc.styles.default_chr.font.as_deref() != Some(normal.as_str())
+    {
+        Arc::make_mut(&mut doc.styles).default_chr.font = Some(normal);
+    }
+}
+
 /// The document laid out as its PDF is: printed pages, final text, field results as printed.
-fn pdf_layout(doc: &Document) -> DocLayout {
-    let opts = LayoutOptions { hide_deleted: true, output_page_refs: true, ..Default::default() };
-    // The fields as printed, when that changes no paragraphs (the ink goes into `doc`).
-    let printed = wordcraft_engine::cmd::references::output_fields(doc).filter(|d| d.paragraph_count() == doc.paragraph_count());
-    wordcraft_layout_of(printed.as_ref().unwrap_or(doc), &opts)
+pub fn pdf_layout(doc: &Document) -> DocLayout {
+    let opts = LayoutOptions {
+        hide_deleted: true,
+        output_page_refs: true,
+        ..Default::default()
+    };
+    // The fields as printed, when that changes no paragraphs (the drawings go into `doc`).
+    let printed = wordcraft_engine::cmd::references::output_fields(doc)
+        .filter(|d| d.paragraph_count() == doc.paragraph_count());
+    wordcraft_engine::layout::layout(
+        printed.as_ref().unwrap_or(doc),
+        &mut LayoutCache::new(),
+        &opts,
+    )
 }
 
-fn wordcraft_layout_of(doc: &Document, opts: &LayoutOptions) -> DocLayout {
-    wordcraft_engine::layout::layout(doc, &mut LayoutCache::new(), opts)
-}
-
-fn pages_of(strokes: &[Stroke]) -> Vec<usize> {
-    let mut pages: Vec<usize> = strokes.iter().map(|s| s.page).collect();
+fn pages_of(drawings: &[Drawing]) -> Vec<usize> {
+    let mut pages: Vec<usize> = drawings.iter().map(|d| d.page).collect();
     pages.sort_unstable();
     pages.dedup();
     pages
 }
 
-/// Where ink on `page` is anchored: a body paragraph that starts on the page, else the first body
-/// line on it (a table cell's, or a paragraph's continued from the page before). The flag is set
-/// for a place in a table (the ink is then placed on the page, not in the cell).
-fn anchor_on(layout: &DocLayout, page: usize) -> Option<(Pos, bool)> {
-    let pg = layout.pages.get(page)?;
-    for item in &pg.items {
-        if let Placed::Lines { story: StoryRef::Body, path, l0: 0, .. } = item
-            && path.depth() == 0
-        {
-            return Some((Pos { story: StoryRef::Body, path: path.clone(), off: 0 }, false));
-        }
-    }
-    let lines = wordcraft_engine::layout::hit::page_lines(pg, StoryRef::Body);
-    let line = lines.first()?;
-    let off = line.para.lines.get(line.li)?.start;
-    Some((Pos { story: StoryRef::Body, path: line.path.clone(), off }, line.path.depth() > 0))
+/// Where a drawing is anchored and how its offsets count.
+#[derive(Clone, Debug)]
+struct Anchoring {
+    /// Where the picture's U+FFFC goes: a paragraph's start, or a word in it.
+    pos: Pos,
+    h_rel: Anchor,
+    v_rel: Anchor,
+    /// Where the offsets start on the page, as far as the layout's lines tell (the second
+    /// layout corrects it).
+    origin: (f32, f32),
+    in_cell: bool,
 }
 
-/// Put each stroke on its page as an ink shape. Returns how many were placed and the pages
-/// whose strokes could not be.
-fn put_ink(doc: &mut Document, layout: &DocLayout, strokes: &[Stroke]) -> (usize, Vec<usize>) {
-    // Strokes by anchor, in drawing order: (anchor, in a table, page, objects).
-    let mut groups: Vec<(Pos, bool, usize, Vec<InlineObject>)> = Vec::new();
-    let mut skipped = Vec::new();
-    let mut per_page: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
-    let mut order = 0u32;
-    for stroke in strokes {
-        let Some(pg) = layout.pages.get(stroke.page) else {
-            skipped.push(stroke.page);
+/// Lines `l0..l1` of a body paragraph on a page, and the area they cover.
+struct Fragment<'a> {
+    path: &'a wordcraft_doc::Path,
+    para: &'a wordcraft_engine::layout::ParaLayout,
+    l0: usize,
+    l1: usize,
+    /// Column left and the top of line `l0`.
+    x: f32,
+    y: f32,
+    /// The lines' room: from the leftmost line's left edge to the rightmost's right, from the
+    /// first line's top to the last one's bottom.
+    area: Rect,
+}
+
+impl Fragment<'_> {
+    /// Whether the paragraph begins here.
+    fn starts(&self) -> bool {
+        self.l0 == 0
+    }
+    fn in_cell(&self) -> bool {
+        self.path.depth() > 0
+    }
+    /// The table cell it is in: its table's path, row and cell (`None` outside tables).
+    fn cell(&self) -> Option<(&[u32], u32, u32)> {
+        let p = &self.path.0;
+        (p.len() >= 4).then(|| (&p[..p.len() - 3], p[p.len() - 3], p[p.len() - 2]))
+    }
+    /// Top of line `li` on the page.
+    fn line_top(&self, li: usize) -> f32 {
+        let first = self.para.lines.get(self.l0).map_or(0.0, |l| l.top);
+        self.y + self.para.lines.get(li).map_or(0.0, |l| l.top - first)
+    }
+}
+
+/// The body paragraphs' lines on page `page`. Left out: turned table text, and a paragraph's
+/// lines that hold nothing but a page or column break (a paragraph that begins with a break
+/// begins after it in Word and LibreOffice, on the next page).
+fn fragments<'a>(layout: &'a DocLayout, doc: &Document, page: usize) -> Vec<Fragment<'a>> {
+    let Some(pg) = layout.pages.get(page) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for item in &pg.items {
+        let Placed::Lines {
+            story: StoryRef::Body,
+            path,
+            para,
+            l0,
+            l1,
+            x,
+            y,
+            turn,
+        } = item
+        else {
             continue;
         };
-        let group = match groups.iter().position(|g| g.2 == stroke.page) {
-            Some(i) => i,
-            None => match anchor_on(layout, stroke.page) {
-                Some((pos, in_table)) => {
-                    groups.push((pos, in_table, stroke.page, Vec::new()));
-                    groups.len() - 1
-                }
-                None => {
-                    skipped.push(stroke.page);
-                    continue;
-                }
-            },
+        if turn.is_turned() || l1 <= l0 {
+            continue;
+        }
+        let Some(lines) = para.lines.get(*l0..*l1) else {
+            continue;
         };
-        let in_table = groups[group].1;
-        // The page's own size, without a comment area beside it.
-        let (pw, ph) = ((pg.w - pg.markup).max(1.0), pg.h.max(1.0));
-        for piece in pieces(&stroke.points) {
-            let count = per_page.entry(stroke.page).or_default();
-            if *count >= MAX_INK_PER_PAGE {
-                skipped.push(stroke.page);
-                break;
-            }
-            *count += 1;
-            order += 1;
-            groups[group].3.push(ink_shape(stroke, piece, (pw, ph), in_table, order));
+        let text = doc
+            .para(StoryRef::Body, path)
+            .map(|p| p.text.as_str())
+            .unwrap_or_default();
+        let only_break = |l: &wordcraft_engine::layout::para::Line| {
+            matches!(l.end, LineEnd::PageBreak | LineEnd::ColumnBreak)
+                && text.get(l.start..l.stop).is_some_and(|t| {
+                    t.chars()
+                        .all(|c| c.is_whitespace() || c == PAGE_BREAK || c == COLUMN_BREAK)
+                })
+        };
+        if lines.iter().all(only_break) {
+            continue;
         }
-    }
-    // Insert from the end of each paragraph backwards, so the places found in the layout stay
-    // right; each group's strokes go in at one place, in drawing order.
-    groups.sort_by(|a, b| (b.0.story, &b.0.path, b.0.off).cmp(&(a.0.story, &a.0.path, a.0.off)));
-    let mut placed = 0;
-    for (pos, _, page, objects) in groups {
-        for obj in objects.into_iter().rev() {
-            match doc.insert_object(&pos, obj, &CharProps::default()) {
-                Ok(_) => placed += 1,
-                Err(_) => skipped.push(page),
-            }
-        }
-    }
-    skipped.sort_unstable();
-    skipped.dedup();
-    (placed, skipped)
-}
-
-/// A stroke's points in runs of at most `MAX_POINTS`, each run starting where the last ended.
-fn pieces(points: &[[f32; 2]]) -> Vec<&[[f32; 2]]> {
-    if points.len() <= MAX_POINTS {
-        return vec![points];
-    }
-    let mut out = Vec::new();
-    let mut start = 0;
-    while start + 1 < points.len() {
-        let end = (start + MAX_POINTS).min(points.len());
-        out.push(&points[start..end]);
-        start = end - 1;
+        let (first, last) = (&lines[0], &lines[lines.len() - 1]);
+        let left = lines.iter().map(|l| l.left).fold(f32::INFINITY, f32::min);
+        let right = lines
+            .iter()
+            .map(|l| l.right)
+            .fold(f32::NEG_INFINITY, f32::max);
+        let height = (last.top + last.height - first.top).max(0.0);
+        let area = Rect::new(x + left, *y, (right - left).max(0.0), height);
+        out.push(Fragment {
+            path,
+            para,
+            l0: *l0,
+            l1: *l1,
+            x: *x,
+            y: *y,
+            area,
+        });
     }
     out
 }
 
-/// The ink shape for `points` of `stroke`: a freeform the size of the points' bounds, placed on
-/// the page. The frame is not grown by the stroke's width: LibreOffice puts an ODT path's own
-/// bounds at the frame's corner, so a grown frame would shift the ink by half its width.
-fn ink_shape(stroke: &Stroke, points: &[[f32; 2]], (pw, ph): (f32, f32), in_table: bool, order: u32) -> InlineObject {
-    let width = stroke.width;
-    let pts: Vec<[f32; 2]> = points.iter().map(|[x, y]| [x.clamp(0.0, pw), y.clamp(0.0, ph)]).collect();
-    let first = pts.first().copied().unwrap_or([0.0, 0.0]);
-    let (mut x0, mut y0, mut x1, mut y1) = (first[0], first[1], first[0], first[1]);
-    for [x, y] in &pts {
-        (x0, y0, x1, y1) = (x0.min(*x), y0.min(*y), x1.max(*x), y1.max(*y));
+/// Distance from point `c` to rectangle `r` (0 inside it).
+fn distance(r: &Rect, c: Point) -> f32 {
+    let dx = (r.x - c.x).max(c.x - r.right()).max(0.0);
+    let dy = (r.y - c.y).max(c.y - r.bottom()).max(0.0);
+    dx.hypot(dy)
+}
+
+/// Where drawing `d` is anchored on its page: in the table cell it lies in, else to the body text
+/// outside tables; to the nearest paragraph that starts on the page, its offsets counted from the
+/// paragraph's top, else (only the middle of a long paragraph near) to a word on the nearest line,
+/// placed on the page.
+fn anchor_for(layout: &DocLayout, doc: &Document, d: &Drawing) -> Option<Anchoring> {
+    let pg = layout.pages.get(d.page)?;
+    let frags = fragments(layout, doc, d.page);
+    if frags.is_empty() {
+        return None;
     }
-    let (fx, fy) = (x0, y0);
-    let (fw, fh) = ((x1 - x0).max(1.0), (y1 - y0).max(1.0));
-    // A single dot: two points, so it is drawn.
-    let mut local: Vec<[f32; 2]> = pts.iter().map(|[x, y]| [x - fx, y - fy]).collect();
-    if local.len() == 1 {
-        local.push([local[0][0] + 0.01, local[0][1]]);
+    let c = Point::new(d.x + d.w / 2.0, d.y + d.h / 2.0);
+    // The innermost table cell the drawing lies in. One that reaches out of its cell is anchored
+    // outside the table: a drawing anchored in a cell is kept inside it (LibreOffice moves it in,
+    // and Word 2013 and later lay a cell's drawings out in the cell whatever the file says).
+    let drawn = Rect::new(d.x, d.y, d.w, d.h);
+    let cell = pg
+        .items
+        .iter()
+        .filter_map(|it| match it {
+            Placed::Cell {
+                rect,
+                covered: false,
+                table,
+                row,
+                cell,
+                story: StoryRef::Body,
+                ..
+            } if rect.contains(c) => Some((table.0.as_slice(), *row as u32, *cell as u32, *rect)),
+            _ => None,
+        })
+        .min_by(|a, b| (a.3.w * a.3.h).total_cmp(&(b.3.w * b.3.h)));
+    let inside = |r: &Rect| {
+        let slack = 2.0;
+        drawn.x >= r.x - slack
+            && drawn.y >= r.y - slack
+            && drawn.right() <= r.right() + slack
+            && drawn.bottom() <= r.bottom() + slack
+    };
+    let in_this_cell: Vec<&Fragment> = match cell {
+        Some((table, row, col, rect)) if inside(&rect) => frags
+            .iter()
+            .filter(|f| f.cell() == Some((table, row, col)))
+            .collect(),
+        _ => Vec::new(),
+    };
+    let mut pool = in_this_cell;
+    if pool.is_empty() {
+        pool = frags.iter().filter(|f| !f.in_cell()).collect();
     }
-    let wrap = if stroke.tool == InkTool::Highlighter { Wrap::BehindText } else { Wrap::InFrontOfText };
-    let ink = Freeform { order: Some(order), ..Freeform::ink(stroke.tool, fw, fh, local) };
-    InlineObject::Shape {
-        kind: ShapeKind::Freeform,
-        w: fw,
-        h: fh,
-        fill: None,
-        stroke: Some(stroke.color),
-        stroke_width: width,
-        float: Float {
-            wrap,
-            h_rel: Anchor::Page,
-            v_rel: Anchor::Page,
-            x: fx,
-            y: fy,
-            outside_cell: in_table,
-            ..Default::default()
+    if pool.is_empty() {
+        pool = frags.iter().collect();
+    }
+    let near = |f: &&Fragment| distance(&f.area, c);
+    let best = pool.iter().copied().min_by(|a, b| {
+        near(a)
+            .total_cmp(&near(b))
+            .then(b.starts().cmp(&a.starts()))
+    })?;
+    let reach = near(&best) + PARAGRAPH_REACH;
+    let start = pool
+        .iter()
+        .copied()
+        .filter(|f| f.starts() && near(f) <= reach && c.y - f.y <= PARAGRAPH_DEPTH)
+        .min_by(|a, b| near(a).total_cmp(&near(b)));
+    if let Some(f) = start {
+        // Offsets from the paragraph's top: in a table cell across from the cell (LibreOffice
+        // counts "from the page" inside a cell from the cell), elsewhere from the page's left edge.
+        let (h_rel, x0) = if f.in_cell() {
+            (Anchor::Column, f.x)
+        } else {
+            (Anchor::Page, 0.0)
+        };
+        return Some(Anchoring {
+            pos: Pos {
+                story: StoryRef::Body,
+                path: f.path.clone(),
+                off: 0,
+            },
+            h_rel,
+            v_rel: Anchor::Paragraph,
+            origin: (x0, f.y),
+            in_cell: f.in_cell(),
+        });
+    }
+    // No paragraph starts near (the middle of a long paragraph, or the margin far below one): the
+    // drawing is placed on the page, anchored in the first word of the line nearest it, so it is
+    // on the page that line is on. (Offsets from a line are counted differently by different
+    // programs.)
+    let li = (best.l0..best.l1)
+        .min_by(|&a, &b| {
+            let mid = |li: usize| {
+                let top = best.line_top(li);
+                let h = best.para.lines.get(li).map_or(0.0, |l| l.height);
+                (top + h / 2.0 - c.y).abs()
+            };
+            mid(a).total_cmp(&mid(b))
+        })
+        .unwrap_or(best.l0);
+    let line = best.para.lines.get(li)?;
+    let text = doc
+        .para(StoryRef::Body, best.path)
+        .map(|p| p.text.as_str())
+        .unwrap_or_default();
+    Some(Anchoring {
+        pos: Pos {
+            story: StoryRef::Body,
+            path: best.path.clone(),
+            off: first_word_end(text, line.start, line.stop),
         },
-        story: None,
-        freeform: Some(Arc::new(Freeform { alpha: stroke.alpha.clamp(0.0, 1.0), ..ink })),
-        effects: Default::default(),
-        extra: Default::default(),
+        h_rel: Anchor::Page,
+        v_rel: Anchor::Page,
+        origin: (0.0, 0.0),
+        in_cell: best.in_cell(),
+    })
+}
+
+/// The end of the first word in `text[start..stop]` (`start` when there is none): a place inside
+/// the line, which a line break before the word can't move to the line above.
+fn first_word_end(text: &str, start: usize, stop: usize) -> usize {
+    let Some(line) = text.get(start..stop.min(text.len())) else {
+        return start;
+    };
+    let mut seen_word = false;
+    for (i, ch) in line.char_indices() {
+        if ch.is_whitespace() || ch == wordcraft_doc::para::OBJ {
+            if seen_word {
+                return start + i;
+            }
+        } else {
+            seen_word = true;
+        }
     }
+    if seen_word { start + line.len() } else { start }
+}
+
+/// Put each drawing on its page, anchored to the text it was drawn on (see [`anchor_for`]), then
+/// lay the document out again (with `lay`) and move each one by what it is off from where it was
+/// drawn, so its offsets count as Word counts them (from above a paragraph's space before, say).
+fn put_drawings(
+    doc: &mut Document,
+    layout: &DocLayout,
+    drawings: &[Drawing],
+    lay: &dyn Fn(&Document) -> DocLayout,
+    report: &mut ExportReport,
+) {
+    struct Item {
+        at: Anchoring,
+        drawing: usize,
+        obj: InlineObject,
+    }
+    let mut items: Vec<Item> = Vec::new();
+    let mut skipped = Vec::new();
+    for (i, d) in drawings.iter().enumerate() {
+        let Some(at) = anchor_for(layout, doc, d) else {
+            skipped.push(d.page);
+            continue;
+        };
+        let Some((bytes, ext)) = read_picture(&d.path)
+            .ok()
+            .and_then(|b| picture_ext(&b).map(|e| (b, e)))
+        else {
+            skipped.push(d.page);
+            continue;
+        };
+        let media = doc.add_media(bytes, ext);
+        let float = Float {
+            wrap: if d.behind {
+                Wrap::BehindText
+            } else {
+                Wrap::InFrontOfText
+            },
+            h_rel: at.h_rel,
+            v_rel: at.v_rel,
+            x: d.x - at.origin.0,
+            y: d.y - at.origin.1,
+            ..Default::default()
+        };
+        let obj = InlineObject::Image {
+            media,
+            w: d.w,
+            h: d.h,
+            alt: String::new(),
+            float,
+            crop: [0.0; 4],
+            fx: Default::default(),
+            ole: None,
+        };
+        items.push(Item {
+            at,
+            drawing: i,
+            obj,
+        });
+    }
+
+    // Insert from the end of each paragraph backwards, so the places found in the layout stay
+    // right; drawings at one place go in in drawing order.
+    let key = |it: &Item| (it.at.pos.story, it.at.pos.path.clone(), it.at.pos.off);
+    let mut order: Vec<usize> = (0..items.len()).collect();
+    order.sort_by(|&a, &b| key(&items[b]).cmp(&key(&items[a])).then(b.cmp(&a)));
+    let mut inserted = vec![false; items.len()];
+    for &i in &order {
+        let pos = &items[i].at.pos;
+        // The text's own look for the picture's place, so it changes no line's height.
+        let props = doc
+            .para(pos.story, &pos.path)
+            .map(|p| p.props_at(pos.off).clone())
+            .unwrap_or_default();
+        inserted[i] = doc.insert_object(pos, items[i].obj.clone(), &props).is_ok();
+        if !inserted[i] {
+            skipped.push(drawings[items[i].drawing].page);
+        }
+    }
+    // Each picture's place now: its own place, after the pictures put before it in its paragraph.
+    let obj_len = wordcraft_doc::para::OBJ.len_utf8();
+    let mut finals: Vec<Option<Pos>> = vec![None; items.len()];
+    let mut ascending: Vec<usize> = (0..items.len()).filter(|&i| inserted[i]).collect();
+    ascending.sort_by(|&a, &b| key(&items[a]).cmp(&key(&items[b])).then(a.cmp(&b)));
+    let mut before = 0;
+    for (n, &i) in ascending.iter().enumerate() {
+        let p = &items[i].at.pos;
+        let same = n > 0 && {
+            let q = &items[ascending[n - 1]].at.pos;
+            q.story == p.story && q.path == p.path
+        };
+        before = if same { before + 1 } else { 0 };
+        finals[i] = Some(Pos {
+            off: p.off + before * obj_len,
+            ..p.clone()
+        });
+    }
+
+    // Where the layout puts each picture, against where it was drawn.
+    let second = lay(doc);
+    let index = second.object_index();
+    for (i, item) in items.iter().enumerate() {
+        let Some(pos) = &finals[i] else { continue };
+        let d = &drawings[item.drawing];
+        let hit = index.object(pos, d.page).filter(|h| h.page == d.page);
+        let Ok(p) = doc.para_mut(pos.story, &pos.path) else {
+            continue;
+        };
+        let Some(InlineObject::Image { float, .. }) = p.object_at_mut(pos.off) else {
+            continue;
+        };
+        match hit {
+            Some(h) => {
+                float.x += d.x - h.rect.x;
+                float.y += d.y - h.rect.y;
+            }
+            None => {
+                // Not laid out on its page (a paragraph pushed to another one): placed on the
+                // page by its corner instead, which holds while the paragraph stays there.
+                float.h_rel = Anchor::Page;
+                float.v_rel = Anchor::Page;
+                float.x = d.x;
+                float.y = d.y;
+            }
+        }
+        report.drawings += 1;
+        if item.at.v_rel == Anchor::Page {
+            report.on_pages += 1;
+        }
+        if item.at.in_cell {
+            report.in_cells += 1;
+        }
+    }
+    skipped.sort_unstable();
+    skipped.dedup();
+    report.skipped_pages = skipped;
+}
+
+/// The pictures of `doc` laid out (`layout`) that came from drawings: page and frame, in the
+/// order they are in the text. For checks.
+pub fn placed_pictures(layout: &DocLayout) -> Vec<(usize, Rect)> {
+    let mut out = Vec::new();
+    for (i, pg) in layout.pages.iter().enumerate() {
+        for it in &pg.items {
+            if let Placed::Object {
+                rect,
+                wrap,
+                story: StoryRef::Body,
+                ..
+            } = it
+                && matches!(wrap, Wrap::InFrontOfText | Wrap::BehindText)
+            {
+                out.push((i, *rect));
+            }
+        }
+    }
+    out
+}
+
+/// How far each drawing of `req` is from where it was drawn once its saved file is opened again
+/// and laid out as the app lays it out: (across, down) in points, `None` when it is not on its
+/// page. For checks.
+pub fn check_saved(req: &ExportRequest, opts: &Options) -> Result<Vec<Option<(f32, f32)>>, String> {
+    let region = wordcraft_geom::Region::from_tag(&opts.region);
+    let (mut doc, _) = wordcraft_engine::io::open_path_in(&req.output, None, &region)?;
+    prepare(&mut doc, opts);
+    let placed = placed_pictures(&pdf_layout(&doc));
+    Ok(req
+        .drawings
+        .iter()
+        .map(|d| {
+            placed
+                .iter()
+                .filter(|(page, r)| {
+                    *page == d.page && (r.w - d.w).abs() < 0.5 && (r.h - d.h).abs() < 0.5
+                })
+                .map(|(_, r)| (r.x - d.x, r.y - d.y))
+                .min_by(|a, b| a.0.hypot(a.1).total_cmp(&b.0.hypot(b.1)))
+        })
+        .collect())
 }
 
 /// Add `pictures` as whole pages at the end: each a picture behind the text, the size of its
 /// page. `alone`: the document has nothing else (its first, empty paragraph holds the first
 /// page). Returns how many were added.
-fn add_picture_pages(doc: &mut Document, pictures: &[PagePicture], alone: bool) -> Result<usize, String> {
+fn add_picture_pages(
+    doc: &mut Document,
+    pictures: &[PagePicture],
+    alone: bool,
+) -> Result<usize, String> {
     let mut added = 0;
     for (i, picture) in pictures.iter().enumerate() {
         let bytes = read_picture(&picture.path)?;
-        let ext = picture_ext(&bytes).ok_or_else(|| format!("{}: not a PNG or JPEG picture", picture.path.display()))?;
+        let ext = picture_ext(&bytes)
+            .ok_or_else(|| format!("{}: not a PNG or JPEG picture", picture.path.display()))?;
         let media = doc.add_media(bytes, ext);
         let first = alone && i == 0;
         let page = page_section(picture);
@@ -347,17 +741,26 @@ fn add_picture_pages(doc: &mut Document, pictures: &[PagePicture], alone: bool) 
             w: picture.w,
             h: picture.h,
             alt: String::new(),
-            float: Float { wrap: Wrap::BehindText, h_rel: Anchor::Page, v_rel: Anchor::Page, x: 0.0, y: 0.0, ..Default::default() },
+            float: Float {
+                wrap: Wrap::BehindText,
+                h_rel: Anchor::Page,
+                v_rel: Anchor::Page,
+                x: 0.0,
+                y: 0.0,
+                ..Default::default()
+            },
             crop: [0.0; 4],
             fx: Default::default(),
             ole: None,
         };
-        let new_section = alone && !first && last_paragraph(doc).is_some_and(|p| p.section.is_some());
+        let new_section =
+            alone && !first && last_paragraph(doc).is_some_and(|p| p.section.is_some());
         let mut p = Paragraph::new();
         if !first && !new_section {
             p.props.page_break_before = Some(true);
         }
-        p.insert_object(0, picture_object, &CharProps::default()).map_err(|e| e.to_string())?;
+        p.insert_object(0, picture_object, &CharProps::default())
+            .map_err(|e| e.to_string())?;
         if first {
             // The blank document's own empty paragraph becomes the first page.
             if let Some(last) = last_paragraph(doc) {
@@ -423,20 +826,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn long_strokes_are_cut_into_joined_pieces() {
-        let pts: Vec<[f32; 2]> = (0..12_000).map(|i| [i as f32 * 0.01, 1.0]).collect();
-        let parts = pieces(&pts);
-        assert_eq!(parts.len(), 3);
-        assert!(parts.iter().all(|p| p.len() <= MAX_POINTS));
-        assert_eq!(parts[0].last(), parts[1].first());
-        assert_eq!(parts[2].last(), pts.last());
+    fn drawings_read_from_json_are_kept_in_range() {
+        let v = serde_json::json!({"page": 2, "x": -9000, "y": 5, "width": 100, "height": 40, "path": "/tmp/a.png", "behind": true});
+        let d = drawing_from_json(&v).expect("drawing");
+        assert_eq!(
+            (d.page, d.x, d.y, d.w, d.h, d.behind),
+            (2, -MAX_SIDE, 5.0, 100.0, 40.0, true)
+        );
+        assert!(drawing_from_json(&serde_json::json!({"page": 0, "x": 1, "y": 1, "width": 0, "height": 4, "path": "a"})).is_none());
+        assert!(
+            drawing_from_json(
+                &serde_json::json!({"page": 0, "x": 1, "y": 1, "width": 3, "height": 4})
+            )
+            .is_none()
+        );
     }
 
     #[test]
-    fn strokes_read_from_json_are_kept_in_range() {
-        let v = serde_json::json!({"page": 2, "tool": "highlighter", "color": "FFEE00", "width": 500, "points": [[1, 2], [3, "x"], [4, 5]]});
-        let s = stroke_from_json(&v).expect("stroke");
-        assert_eq!((s.page, s.tool, s.color, s.width, s.points.len()), (2, InkTool::Highlighter, Rgb(0xFF, 0xEE, 0), MAX_WIDTH, 2));
-        assert!((s.alpha - 0.5).abs() < 1e-6);
+    fn first_word_end_stays_inside_the_line() {
+        let t = "ab cd  ef";
+        assert_eq!(first_word_end(t, 0, t.len()), 2);
+        assert_eq!(first_word_end(t, 2, t.len()), 5);
+        assert_eq!(first_word_end(t, 7, t.len()), 9);
+        assert_eq!(first_word_end("   ", 0, 3), 0);
+        assert_eq!(first_word_end("Բարև ձեզ", 0, 13), "Բարև".len());
+    }
+
+    #[test]
+    fn distance_is_zero_inside_and_straight_beside() {
+        let r = Rect::new(10.0, 10.0, 100.0, 20.0);
+        assert_eq!(distance(&r, Point::new(50.0, 15.0)), 0.0);
+        assert_eq!(distance(&r, Point::new(50.0, 40.0)), 10.0);
+        assert_eq!(distance(&r, Point::new(113.0, 34.0)), 5.0);
     }
 }

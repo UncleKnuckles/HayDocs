@@ -2,99 +2,144 @@ import PDFKit
 import PencilKit
 import UIKit
 
-/// The Pencil drawings as the document engine puts them on pages: each stroke as points on its
-/// page (page points from the top left corner), with its tool, colour, opacity and width.
-enum InkStrokes {
-    static func strokes(of drawing: PKDrawing, page: Int, canvasSize: CGSize, pageSize: CGSize) -> [[String: Any]] {
-        // The canvas lies over the whole page: its points scale to page points.
-        let sx = pageSize.width / max(canvasSize.width, 1)
-        let sy = pageSize.height / max(canvasSize.height, 1)
-        var out: [[String: Any]] = []
-        for stroke in drawing.strokes {
-            let tool = toolName(stroke.ink.inkType)
-            let (color, colorAlpha) = hexColor(stroke.ink.color)
-            let transform = stroke.transform
-            let transformScale = sqrt(abs(transform.a * transform.d - transform.b * transform.c))
-            let last = CGFloat(max(stroke.path.count - 1, 0))
-            // What the pixel eraser left of the stroke.
-            let ranges = stroke.mask == nil ? [0...last] : stroke.maskedPathRanges
-            for range in ranges {
-                var points: [CGPoint] = []
-                var widths: CGFloat = 0
-                var opacities: CGFloat = 0
-                for point in stroke.path.interpolatedPoints(in: range, by: .distance(1)) {
-                    let p = point.location.applying(transform)
-                    points.append(CGPoint(x: p.x * sx, y: p.y * sy))
-                    widths += point.size.width
-                    opacities += point.opacity
-                }
-                guard !points.isEmpty else { continue }
-                let n = CGFloat(points.count)
-                let width = widths / n * transformScale * (sx + sy) / 2
-                let alpha = tool == "highlighter" ? 0.5 : min(1, max(0.05, colorAlpha * opacities / n))
-                out.append([
-                    "page": page,
-                    "tool": tool,
-                    "color": color,
-                    "alpha": Double(alpha),
-                    "width": Double(width),
-                    "points": simplify(points, tolerance: 0.12).map { [Double($0.x), Double($0.y)] },
-                ])
+/// The Pencil drawing of a page as pictures for the document engine. Strokes that lie close
+/// together (a signature, a word, a tick) make one picture with no background, and each picture
+/// says where on the page it goes, in page points from the top left corner. The engine ties each
+/// one to the text it was drawn on, so it stays there when Word lays the text out its own way.
+enum InkPictures {
+    /// Strokes this close (page points) go in one picture.
+    static let gap: CGFloat = 12
+    /// Room around the ink (page points), so no edge of a line is cut off.
+    static let padding: CGFloat = 2
+    /// Pixels per page point: about 290 dpi, sharp in print.
+    static let pixelsPerPoint: CGFloat = 4
+    static let mostPixels: CGFloat = 6_000_000
+
+    /// One picture: strokes of the drawing (in drawing order) and the canvas rectangle it shows.
+    struct Group {
+        var strokes: [Int]
+        var rect: CGRect
+        /// Marker strokes only: put behind the text, as a highlighter is.
+        var behind: Bool
+    }
+
+    /// The canvas lies over the whole page: canvas points times these are page points.
+    static func scales(canvasSize: CGSize, pageSize: CGSize) -> (CGFloat, CGFloat) {
+        (pageSize.width / max(canvasSize.width, 1), pageSize.height / max(canvasSize.height, 1))
+    }
+
+    /// Strokes grouped by nearness, markers apart from the rest; groups don't overlap.
+    static func groups(of drawing: PKDrawing, canvasSize: CGSize, pageSize: CGSize) -> [Group] {
+        let (sx, sy) = scales(canvasSize: canvasSize, pageSize: pageSize)
+        let canvas = CGRect(origin: .zero, size: canvasSize)
+        // Half the gap on each side, in canvas points.
+        let gx = gap / 2 / max(sx, 1e-6)
+        let gy = gap / 2 / max(sy, 1e-6)
+        let grown = { (r: CGRect) in r.insetBy(dx: -gx, dy: -gy) }
+
+        var items: [(index: Int, bounds: CGRect, behind: Bool)] = []
+        for (index, stroke) in drawing.strokes.enumerated() {
+            let bounds = stroke.renderBounds
+            guard !bounds.isNull, !bounds.isInfinite, bounds.width.isFinite, bounds.height.isFinite,
+                  bounds.intersects(canvas) else { continue }
+            items.append((index, bounds, stroke.ink.inkType == .marker))
+        }
+
+        // Strokes whose boxes come within the gap of each other, joined.
+        var parent = Array(items.indices)
+        func root(_ i: Int) -> Int {
+            var i = i
+            while parent[i] != i {
+                parent[i] = parent[parent[i]]
+                i = parent[i]
             }
+            return i
+        }
+        for a in items.indices {
+            let ra = grown(items[a].bounds)
+            for b in items.indices where b > a && items[b].behind == items[a].behind {
+                if ra.intersects(grown(items[b].bounds)) {
+                    let (top, other) = (root(a), root(b))
+                    if top != other { parent[other] = top }
+                }
+            }
+        }
+        var byRoot: [Int: Group] = [:]
+        var order: [Int] = []
+        for i in items.indices {
+            let r = root(i)
+            if var group = byRoot[r] {
+                group.strokes.append(items[i].index)
+                group.rect = group.rect.union(items[i].bounds)
+                byRoot[r] = group
+            } else {
+                byRoot[r] = Group(strokes: [items[i].index], rect: items[i].bounds, behind: items[i].behind)
+                order.append(r)
+            }
+        }
+        var groups = order.compactMap { byRoot[$0] }
+
+        // Groups whose boxes still come close (a stroke around another's box) become one, so no
+        // two pictures of a kind cover each other.
+        var merged = true
+        while merged {
+            merged = false
+            search: for a in groups.indices {
+                for b in groups.indices where b > a && groups[b].behind == groups[a].behind {
+                    if grown(groups[a].rect).intersects(grown(groups[b].rect)) {
+                        groups[a].strokes += groups[b].strokes
+                        groups[a].rect = groups[a].rect.union(groups[b].rect)
+                        groups.remove(at: b)
+                        merged = true
+                        break search
+                    }
+                }
+            }
+        }
+        for i in groups.indices { groups[i].strokes.sort() }
+        // Highlights first, so ink drawn over them stays on top where pictures meet.
+        return groups.filter(\.behind) + groups.filter { !$0.behind }
+    }
+
+    /// The page's pictures as PNG files in `folder`, for the engine's "drawings".
+    static func pictures(of drawing: PKDrawing, page: Int, canvasSize: CGSize, pageSize: CGSize,
+                         into folder: URL) -> [[String: Any]] {
+        let (sx, sy) = scales(canvasSize: canvasSize, pageSize: pageSize)
+        let canvas = CGRect(origin: .zero, size: canvasSize)
+        let strokes = drawing.strokes
+        var out: [[String: Any]] = []
+        for (n, group) in groups(of: drawing, canvasSize: canvasSize, pageSize: pageSize).enumerated() {
+            var rect = group.rect.insetBy(dx: -padding / max(sx, 1e-6), dy: -padding / max(sy, 1e-6))
+                .intersection(canvas)
+            guard !rect.isNull, rect.width * sx >= 0.5, rect.height * sy >= 0.5 else { continue }
+            // Pixels per canvas point; the picture's sides made whole pixels, so it maps exactly.
+            var scale = pixelsPerPoint * max(sx, sy)
+            scale = max(0.25, min(scale, sqrt(mostPixels / max(rect.width * rect.height, 1))))
+            rect.size = CGSize(width: (rect.width * scale).rounded(.up) / scale,
+                               height: (rect.height * scale).rounded(.up) / scale)
+            let data: Data? = autoreleasepool {
+                var image = UIImage()
+                UITraitCollection(userInterfaceStyle: .light).performAsCurrent {
+                    image = PKDrawing(strokes: group.strokes.map { strokes[$0] }).image(from: rect, scale: scale)
+                }
+                return image.pngData()
+            }
+            let url = folder.appendingPathComponent("ink-\(page + 1)-\(n + 1).png")
+            guard let data, (try? data.write(to: url)) != nil else {
+                Log.info("export: picture \(n + 1) of page \(page + 1) not made")
+                continue
+            }
+            out.append([
+                "page": page,
+                "x": Double(rect.minX * sx),
+                "y": Double(rect.minY * sy),
+                "width": Double(rect.width * sx),
+                "height": Double(rect.height * sy),
+                "path": url.path,
+                "behind": group.behind,
+            ])
         }
         return out
-    }
-
-    /// The engine's three tools: pens, pencils and markers.
-    private static func toolName(_ type: PKInk.InkType) -> String {
-        switch type {
-        case .marker, .watercolor: return "highlighter"
-        case .pencil, .crayon: return "pencil"
-        default: return "pen"
-        }
-    }
-
-    /// "RRGGBB" in sRGB, as the ink shows on the light canvas, and its opacity.
-    private static func hexColor(_ color: UIColor) -> (String, CGFloat) {
-        let resolved = color.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 1
-        if !resolved.getRed(&r, green: &g, blue: &b, alpha: &a) {
-            var white: CGFloat = 0
-            if resolved.getWhite(&white, alpha: &a) { (r, g, b) = (white, white, white) }
-        }
-        let byte = { (v: CGFloat) in Int((min(1, max(0, v)) * 255).rounded()) }
-        return (String(format: "%02lX%02lX%02lX", byte(r), byte(g), byte(b)), min(1, max(0, a)))
-    }
-
-    /// Fewer points along the same line (Ramer–Douglas–Peucker): none moves more than `tolerance`.
-    static func simplify(_ points: [CGPoint], tolerance: CGFloat) -> [CGPoint] {
-        guard points.count > 2 else { return points }
-        var keep = [Bool](repeating: false, count: points.count)
-        keep[0] = true
-        keep[points.count - 1] = true
-        var stack = [(0, points.count - 1)]
-        while let (first, last) = stack.popLast() {
-            guard last > first + 1 else { continue }
-            let a = points[first], b = points[last]
-            let dx = b.x - a.x, dy = b.y - a.y
-            let length = max(sqrt(dx * dx + dy * dy), 1e-6)
-            var farthest = first
-            var distance: CGFloat = 0
-            for i in (first + 1)..<last {
-                let p = points[i]
-                let d = abs(dy * (p.x - a.x) - dx * (p.y - a.y)) / length
-                if d > distance {
-                    distance = d
-                    farthest = i
-                }
-            }
-            if distance > tolerance {
-                keep[farthest] = true
-                stack.append((first, farthest))
-                stack.append((farthest, last))
-            }
-        }
-        return points.indices.filter { keep[$0] }.map { points[$0] }
     }
 }
 
@@ -111,7 +156,8 @@ enum ExportError: LocalizedError {
 /// Word (.docx) and ODT files with the drawings, and pictures of the pages.
 ///
 /// A document whose pages the engine made from Word, ODT, RTF or text is laid out again: its text
-/// stays text and each stroke becomes ink on its page that Word and LibreOffice can move or delete.
+/// stays text and each signature or mark becomes a picture tied to the text it was drawn on, which
+/// Word and LibreOffice can move or delete.
 /// Other documents (PDF, photos, scans, notebooks, tables and slides), and pages added in the app,
 /// become pages that are pictures with the drawing in them.
 @MainActor
@@ -173,24 +219,31 @@ enum DocumentExporter {
 
         let pictures = try await renderPictures(of: 0..<count, source: source, work: work, progress: progress)
         progress("Сохраняю…")
-        _ = try await WordEngine.shared.export(input: nil, output: output, strokes: [], pictures: pictures, title: title)
+        _ = try await WordEngine.shared.export(input: nil, output: output, drawings: [], pictures: pictures, title: title)
         dumpForTests(output, source: source)
         return output
     }
 
-    /// The original laid out again with the strokes on pages before `own`, and the pages from
+    /// The original laid out again with the drawings on pages before `own`, and the pages from
     /// `own` on (added in the app) as pictures after its text.
     private static func withText(input: URL, own: Int, output: URL, source: Source, work: URL, title: String,
                                  progress: @escaping (String) -> Void) async throws -> WordEngine.ExportAnswer {
-        var strokes: [[String: Any]] = []
-        for index in source.drawings.keys.sorted() where index < own {
+        var drawings: [[String: Any]] = []
+        let inked = source.drawings.keys.sorted().filter { $0 < own }
+        for (n, index) in inked.enumerated() {
             guard let drawing = source.drawings[index], let page = source.pdf.page(at: index) else { continue }
+            progress("Готовлю рисунки: \(n + 1) из \(inked.count)")
+            await Task.yield()
             let size = PDFExporter.displayRect(for: page).size
-            strokes += InkStrokes.strokes(of: drawing, page: index, canvasSize: source.canvasSizes[index] ?? size, pageSize: size)
+            drawings += InkPictures.pictures(of: drawing, page: index, canvasSize: source.canvasSizes[index] ?? size,
+                                             pageSize: size, into: work)
         }
         let pictures = try await renderPictures(of: own..<source.pdf.pageCount, source: source, work: work, progress: progress)
         progress("Сохраняю…")
-        return try await WordEngine.shared.export(input: input, output: output, strokes: strokes, pictures: pictures, title: title)
+        if TestHooks.dumpEnabled, let json = try? JSONSerialization.data(withJSONObject: drawings, options: [.prettyPrinted, .sortedKeys]) {
+            TestHooks.dump("export-\(ReaderController.safeFileName(source.entry.title))-\(output.pathExtension)-drawings.json", data: json)
+        }
+        return try await WordEngine.shared.export(input: input, output: output, drawings: drawings, pictures: pictures, title: title)
     }
 
     /// Pages as JPEG pictures with their drawings, for the engine: [path, width, height].
