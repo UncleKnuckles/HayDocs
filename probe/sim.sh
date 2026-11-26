@@ -46,7 +46,7 @@ while [ $n -lt 1200 ]; do
     k=$(basename "$r" .txt | sed 's/ql-ready-//')
     [ -f "$D/ql-shot-$k.txt" ] && continue
     name=$(cat "$r")
-    xcrun simctl io "$DEVICE_ID" screenshot "$O/ql-$name.png" > /dev/null 2>&1
+    xcrun simctl io "$DEVICE_ID" screenshot "$O/ql-$name.png" >> "$O/shots.log" 2>&1 || xcrun simctl io "$DEVICE_ID" screenshot --display=internal "$O/ql-$name.png" >> "$O/shots.log" 2>&1
     echo shot > "$D/ql-shot-$k.txt"
   done
   sleep 0.5

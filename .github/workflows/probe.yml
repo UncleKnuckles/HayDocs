@@ -17,6 +17,7 @@ jobs:
         continue-on-error: true
         run: sh probe/sim.sh
       - name: macOS Quick Look
+        if: false
         continue-on-error: true
         run: sh probe/macos.sh
       - name: Publish
