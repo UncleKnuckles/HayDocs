@@ -1,0 +1,269 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "98813E0D-B34D-4B67-8479-E1E4877C6B79.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "22-library-end_0_4B8DAFFB-5BBA-4E6B-A636-61C2E8590417.png",
+        "timestamp" : 1795727563.305
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "886EE3AA-8760-44E0-817D-BF9FEC970DA5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "21-settings_0_A0A2D11C-BB67-4304-BB94-1D1159E9FD91.png",
+        "timestamp" : 1795727560.436
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "70F7F0B0-84CF-4E77-BCB1-4E552573D9B0.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "20-fonts_0_45D5828D-23D7-4BDF-8181-32237333A8C3.png",
+        "timestamp" : 1795727553.946
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "F9D322DA-1AD2-44D3-AEFD-AE219A55483A.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "19b-Пример PDF-word_0_899B8B8F-4471-4F1F-AC5B-B8C6E115CCE3.png",
+        "timestamp" : 1795727542.101
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "0CBC7F6A-B3CD-4290-A95E-332FA4BC2A54.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "19-Пример PDF_0_E8843663-47C7-4380-B0E4-4573C1AC9E71.png",
+        "timestamp" : 1795727521.793
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "3B35DB0A-2988-43E5-9086-5A8F2BB6A14F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "18-Пример TXT_0_91EFF3E9-1277-4CF7-8D0F-175BC10768B0.png",
+        "timestamp" : 1795727513.389
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "FDE5E4C0-97D3-44CE-8F39-3D87C7B655A2.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "17-Пример RTF_0_5E07D0AC-5798-4FF8-8569-56DED7665941.png",
+        "timestamp" : 1795727504.249
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "98A1C198-C32E-4E06-8B77-24820CD02B0D.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "16b-Пример DOC-word_0_9ECB5ED5-BCB5-42AB-B4DF-3B39B202A98F.png",
+        "timestamp" : 1795727489.8
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "36AE0420-AE15-415F-8990-C18B495FEAE5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "16-Пример DOC_0_AD9C75D4-32C8-4CC9-ADA3-C45EDF76E2FF.png",
+        "timestamp" : 1795727471.101
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "B8F225EB-2580-4662-88C5-9DDBBE0340CB.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "15-Пример ODT_0_CC0581D7-4A70-4F86-91DF-13EDB4273B4D.png",
+        "timestamp" : 1795727447.302
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "84F33E68-6B79-4979-9ED1-02E2F7E327CD.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "14-Пример ArmSCII_0_CA7766F0-EC0C-4414-BC1B-C7D6DD845872.png",
+        "timestamp" : 1795727372.451
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "6C304A4F-557F-434E-BDBC-D9BC9F1D638B.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "13b-search-hit_0_F532554B-C253-4377-A208-403221C4FCD6.png",
+        "timestamp" : 1795727347.863
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "F1062272-A957-43D7-B284-40508F97B292.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "13-search_0_BED07B87-6D5F-475E-94D7-466F632A4017.png",
+        "timestamp" : 1795727340.976
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "0D17606D-E178-4438-A423-A21DA2F7EC78.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "12-two-pages_0_A869B2A6-79E8-45B4-8793-112D5CCE4892.png",
+        "timestamp" : 1795727320.427
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "F41A20B7-0817-4685-9AFA-3BEF12249CA1.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "11-document-info_0_2467CA0D-A206-4B28-8045-B41D1E3A62CC.png",
+        "timestamp" : 1795727310.431
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "BE1DC8F0-0E44-4A1B-961B-00968CDEF924.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "10-more-menu_0_12C3BD11-B47C-4A49-BF9A-309378C789BD.png",
+        "timestamp" : 1795727307.042
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "F1094E9B-090E-48B0-B334-F91E9AB0D4C9.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "09e-share-images_0_ABF3F34D-2274-4BE7-897E-B89857365506.png",
+        "timestamp" : 1795727298.51
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "F70FC84A-E29C-464A-90A8-A83EE208F1C8.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "09d-images-menu_0_CBA1F2BE-3FB4-4F28-9535-7ACD74239762.png",
+        "timestamp" : 1795727292.404
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "0E48FACD-9D7D-4C09-88D1-E11DCB3B727B.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "09c-share-odt_0_E56A7F41-8BCE-4B02-8057-81DA1B1B0775.png",
+        "timestamp" : 1795727283.306
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "A4D6D30C-97D5-433A-8057-91410244C612.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "09b-share-word_0_1F9747DF-EAE9-403D-9BAA-B4580C358C07.png",
+        "timestamp" : 1795727269.228
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "5A643027-DDE1-4E1C-934D-59A2D8FF1FC3.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "09-share-sheet_0_999CD3BA-4745-465C-A5BB-1EA1C5892F96.png",
+        "timestamp" : 1795727254.529
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "D94BEEF3-550E-4D45-AE02-CD8E04B372EA.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "08-export-menu_0_7A9F6362-5C21-4BD3-8F42-AB04C3F242ED.png",
+        "timestamp" : 1795727245.271
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "4D2C3B1D-0C37-48EB-A430-C641579618E8.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "07-drawing-done_0_2AE8DDC5-635B-49E1-929C-6CF7A27EED5C.png",
+        "timestamp" : 1795727242.386
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "49ACFFBF-67F3-42AD-B5F7-54CB087F333E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "06-drawn_0_3ED7FFC7-4E3A-475F-A065-999EC0219F34.png",
+        "timestamp" : 1795727239.627
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "0B2D02E2-16E6-4D3A-8A90-ECE60EB57A73.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "05-drawing-tools_0_F54BEF3C-0C0E-4A5D-ABB3-8B8CC6A93E16.png",
+        "timestamp" : 1795727231.628
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "7D18C8FE-D5E0-48FC-903E-F3C6850D9C26.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "04-word-scrolled_0_AE90FDC8-27FE-425E-A903-652BB4FC7F7E.png",
+        "timestamp" : 1795727222.029
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "C711B7F8-CD94-469D-9BA4-3E2084EEC1AA.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "03-word-page-1_0_9C062E4B-8AF3-48B8-B4D1-0CC28E5775C8.png",
+        "timestamp" : 1795727217.566
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "2FEEEB42-D7A0-4E47-91F9-D11F44522B16.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "02-library_0_A5417FDC-CEA5-4A7E-BB64-3A6AE4C2BBE4.png",
+        "timestamp" : 1795727210.163
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6258D2C3-165A-44AB-BB24-00C7C434F5C8",
+        "deviceName" : "iPhone Duo",
+        "exportedFileName" : "F949D473-F9E8-4554-A3AA-5466FF2C0C31.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "01-library-empty_0_562AA0C0-3950-459C-B238-FDA8F5F28FF7.png",
+        "timestamp" : 1795727196.438
+      }
+    ],
+    "testIdentifier" : "HayDocsUITests/testTour()",
+    "testIdentifierURL" : "test://com.apple.xcode/HayDocs/HayDocsUITests/HayDocsUITests/testTour"
+  }
+]

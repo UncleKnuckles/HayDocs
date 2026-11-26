@@ -1,0 +1,5 @@
+files: 3; iOS 27.2
+doc1 = export-Пример DOC.docx: ok
+doc2 = export-Пример PDF.docx: ok
+doc3 = export-Пример Word.docx: ok
+done

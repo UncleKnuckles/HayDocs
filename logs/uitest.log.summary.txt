@@ -1,0 +1,3 @@
+788:2026-11-26 21:06:14.386 xcodebuild[11080:37252] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+1645:Test Case '-[HayDocsUITests.HayDocsUITests testTour]' passed (396.440 seconds).
+1671:** TEST SUCCEEDED **
