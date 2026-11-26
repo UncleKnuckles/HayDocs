@@ -9,6 +9,11 @@
 //! or a phone may lay the text out differently (other fonts, other page breaks); a signature then
 //! moves with its line instead of staying at a place on the page over other text.
 //!
+//! In a Word file the offsets count from the start of the paragraph and from the column: the
+//! only way iPhone and Mac previews (Quick Look: Files, Mail, WhatsApp) keep a picture with its
+//! text. They show the document as one long page and put any other picture by its offsets from
+//! the top of the whole document, so a signature anchored the usual way ended up near the top.
+//!
 //! The document keeps its own fonts: the Armenian fonts the PDF uses in their place only serve to
 //! find where the lines were in the app. Old ArmSCII text is turned into Unicode as for the PDF.
 //!
@@ -29,6 +34,9 @@ use wordcraft_geom::{Point, Rect};
 
 use crate::{Options, Report, prepare};
 
+/// The lowest stacking order a floating object read from a Word file has (`Float::z` is one more
+/// than its `relativeHeight`, which starts at 251658240 for objects made in Word).
+const FIRST_STORED_Z: u32 = 251_658_241;
 /// Pictures larger than this are not read.
 const MAX_PICTURE: u64 = 64 << 20;
 /// Pages and drawings one request may carry.
@@ -229,7 +237,14 @@ pub fn export(req: &ExportRequest, opts: &Options) -> Result<ExportReport, Strin
         };
         let layout = lay(&doc);
         report.pages = layout.pages.len();
-        put_drawings(&mut doc, &layout, &req.drawings, &lay, &mut report);
+        put_drawings(
+            &mut doc,
+            &layout,
+            &req.drawings,
+            &lay,
+            ext == "docx",
+            &mut report,
+        );
     } else {
         report.skipped_pages = pages_of(&req.drawings);
     }
@@ -472,7 +487,20 @@ fn distance(r: &Rect, c: Point) -> f32 {
 /// outside tables; to the nearest paragraph that starts on the page, its offsets counted from the
 /// paragraph's top, else (only the middle of a long paragraph near) to a word on the nearest line,
 /// placed on the page.
-fn anchor_for(layout: &DocLayout, doc: &Document, d: &Drawing) -> Option<Anchoring> {
+///
+/// `quick_look` (Word files): the way iPhone and Mac previews show Word files (Files, Mail,
+/// WhatsApp; Apple's Quick Look) is taken into account too. Quick Look places a picture whose
+/// across offset counts from the column where its paragraph's first line starts, moved by the
+/// two offsets; any other picture it places by its offsets from the top of the whole document,
+/// whatever they count from. So a Word file's drawing is anchored at the start of a paragraph,
+/// across from the column, never on the page; preferably a paragraph Quick Look starts where
+/// Word does (see [`quick_look_cost`]).
+fn anchor_for(
+    layout: &DocLayout,
+    doc: &Document,
+    d: &Drawing,
+    quick_look: bool,
+) -> Option<Anchoring> {
     let pg = layout.pages.get(d.page)?;
     let frags = fragments(layout, doc, d.page);
     if frags.is_empty() {
@@ -527,15 +555,27 @@ fn anchor_for(layout: &DocLayout, doc: &Document, d: &Drawing) -> Option<Anchori
             .then(b.starts().cmp(&a.starts()))
     })?;
     let reach = near(&best) + PARAGRAPH_REACH;
-    let start = pool
-        .iter()
-        .copied()
-        .filter(|f| f.starts() && near(f) <= reach && c.y - f.y <= PARAGRAPH_DEPTH)
-        .min_by(|a, b| near(a).total_cmp(&near(b)));
+    let start = if quick_look {
+        // Any paragraph that starts on the page; one farther than the reach and depth below, or
+        // one Quick Look starts elsewhere than Word, only for want of a better one.
+        let beyond =
+            |f: &&Fragment| (near(f) - reach).max(0.0) + (c.y - f.y - PARAGRAPH_DEPTH).max(0.0);
+        let cost = |f: &&Fragment| near(f) + beyond(f) + quick_look_cost(f);
+        pool.iter()
+            .copied()
+            .filter(|f| f.starts())
+            .min_by(|a, b| cost(a).total_cmp(&cost(b)))
+    } else {
+        pool.iter()
+            .copied()
+            .filter(|f| f.starts() && near(f) <= reach && c.y - f.y <= PARAGRAPH_DEPTH)
+            .min_by(|a, b| near(a).total_cmp(&near(b)))
+    };
     if let Some(f) = start {
         // Offsets from the paragraph's top: in a table cell across from the cell (LibreOffice
-        // counts "from the page" inside a cell from the cell), elsewhere from the page's left edge.
-        let (h_rel, x0) = if f.in_cell() {
+        // counts "from the page" inside a cell from the cell); elsewhere from the page's left
+        // edge, or (Word files) from the column, the one Quick Look follows.
+        let (h_rel, x0) = if f.in_cell() || quick_look {
             (Anchor::Column, f.x)
         } else {
             (Anchor::Page, 0.0)
@@ -584,6 +624,25 @@ fn anchor_for(layout: &DocLayout, doc: &Document, d: &Drawing) -> Option<Anchori
     })
 }
 
+/// How far Quick Look would put a picture anchored at the start of paragraph `f` from where Word
+/// puts it, points (roughly; a centred or right-aligned paragraph counts as very far). Quick Look
+/// counts the offsets from where the paragraph's first line starts: after the space before it,
+/// and across after its indents (or, in a centred or right-aligned paragraph, after the room the
+/// alignment leaves, or a list item's number); Word counts from the paragraph's top above its
+/// space before and from the column's edge.
+fn quick_look_cost(f: &Fragment) -> f32 {
+    use wordcraft_doc::Align;
+    let rp = &f.para.rp;
+    let mut cost = rp.space_before.max(0.0) + (rp.indent_left + rp.indent_first).abs();
+    if matches!(rp.align, Align::Center | Align::Right) {
+        cost += 1_000.0;
+    }
+    if f.para.label.is_some() {
+        cost += 30.0;
+    }
+    cost
+}
+
 /// The end of the first word in `text[start..stop]` (`start` when there is none): a place inside
 /// the line, which a line break before the word can't move to the line above.
 fn first_word_end(text: &str, start: usize, stop: usize) -> usize {
@@ -611,6 +670,7 @@ fn put_drawings(
     layout: &DocLayout,
     drawings: &[Drawing],
     lay: &dyn Fn(&Document) -> DocLayout,
+    quick_look: bool,
     report: &mut ExportReport,
 ) {
     struct Item {
@@ -620,8 +680,11 @@ fn put_drawings(
     }
     let mut items: Vec<Item> = Vec::new();
     let mut skipped = Vec::new();
+    // Stacking orders above the document's own objects, in the drawings' order (the app sends
+    // the highlighter pictures first, so the ink stays above them).
+    let top_z = top_stacking_order(doc).max(FIRST_STORED_Z);
     for (i, d) in drawings.iter().enumerate() {
-        let Some(at) = anchor_for(layout, doc, d) else {
+        let Some(at) = anchor_for(layout, doc, d, quick_look) else {
             skipped.push(d.page);
             continue;
         };
@@ -634,7 +697,10 @@ fn put_drawings(
         };
         let media = doc.add_media(bytes, ext);
         let float = Float {
-            wrap: if d.behind {
+            // Highlighter strokes go behind the text, but not in Word files: Quick Look shows a
+            // picture behind the text at a quarter of its strength, so a highlight would all but
+            // vanish there. In front, they look as in the app's own PDF.
+            wrap: if d.behind && !quick_look {
                 Wrap::BehindText
             } else {
                 Wrap::InFrontOfText
@@ -643,6 +709,7 @@ fn put_drawings(
             v_rel: at.v_rel,
             x: d.x - at.origin.0,
             y: d.y - at.origin.1,
+            z: top_z.saturating_add(1 + i.min(u32::MAX as usize - 1) as u32),
             ..Default::default()
         };
         let obj = InlineObject::Image {
@@ -737,6 +804,25 @@ fn put_drawings(
     skipped.sort_unstable();
     skipped.dedup();
     report.skipped_pages = skipped;
+}
+
+/// The highest stacking order (`Float::z`) of the floating objects in the document's text, its
+/// tables, headers and footers (0: none has one).
+fn top_stacking_order(doc: &Document) -> u32 {
+    let mut stories = vec![StoryRef::Body];
+    stories.extend(doc.parts.keys().map(|k| StoryRef::Part(*k)));
+    let mut top = 0;
+    for story in stories {
+        for path in doc.para_paths(story) {
+            let Some(p) = doc.para(story, &path) else {
+                continue;
+            };
+            for (_, _, f) in p.objects.iter().filter_map(InlineObject::frame) {
+                top = top.max(f.z);
+            }
+        }
+    }
+    top
 }
 
 /// The pictures of `doc` laid out (`layout`) that came from drawings: page and frame, in the

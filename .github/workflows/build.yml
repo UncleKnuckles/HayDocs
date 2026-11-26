@@ -102,6 +102,12 @@ jobs:
         if: always()
         run: sh ci/collect.sh
 
+      - name: Word exports as iPhone previews show them (Quick Look)
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 10
+        run: sh ci/quicklook.sh
+
       - name: Publish results and the .ipa
         if: always()
         env:
