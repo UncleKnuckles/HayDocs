@@ -1,0 +1,2 @@
+   Compiling haydocs-engine v0.1.0 (/Users/runner/work/HayDocs/HayDocs/engine)
+    Finished `release` profile [optimized] target(s) in 10.65s

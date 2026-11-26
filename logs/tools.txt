@@ -1,0 +1,21 @@
+ProductName:		macOS
+ProductVersion:		27.0.1
+BuildVersion:		26A434
+Xcode 27.1
+Build version 27A9275
+arm64
+27.1
+rustc 1.97.0 (2d8144b78 2026-07-07)
+Version: 2.46.0
+build/ios:
+total 1206568
+drwxr-xr-x  3 runner  staff         96 Nov 26 20:23 .
+drwxr-xr-x  4 runner  staff        128 Nov 26 20:23 ..
+-rw-r--r--  1 runner  staff  617759464 Nov 26 20:23 libhaydocs_engine.a
+
+build/ios-sim:
+total 1206352
+drwxr-xr-x  3 runner  staff         96 Nov 26 20:23 .
+drwxr-xr-x  4 runner  staff        128 Nov 26 20:23 ..
+-rw-r--r--  1 runner  staff  617650296 Nov 26 20:23 libhaydocs_engine.a
+-rw-r--r--  1 runner  staff  31088322 Nov 26 20:25 build/HayDocs.ipa

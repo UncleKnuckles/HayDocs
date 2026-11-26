@@ -1,0 +1,250 @@
+    t =   491.98s Waiting 5.0s for "libraryMenu" Button to exist
+    t =   493.02s     Checking `Expect predicate `existsNoRetry == 1` for object "libraryMenu" Button`
+    t =   493.02s         Checking existence of `"libraryMenu" Button`
+    t =   494.14s Waiting 30.0s for "doc-Пример RTF" Button to exist
+    t =   495.17s     Checking `Expect predicate `existsNoRetry == 1` for object "doc-Пример RTF" Button`
+    t =   495.17s         Checking existence of `"doc-Пример RTF" Button`
+    t =   495.22s Tap "doc-Пример RTF" Button
+    t =   495.22s     Wait for com.haydocs.reader to idle
+    t =   495.22s     Find the "doc-Пример RTF" Button
+    t =   495.27s     Check for interrupting elements affecting "doc-Пример RTF" Button
+    t =   495.31s         Wait for com.apple.springboard to idle
+    t =   495.39s     Synthesize event
+    t =   495.43s         Scroll element to visible
+    t =   495.43s         Find the "doc-Пример RTF" Button
+    t =   495.65s         Computed hit point {281, 390} after scrolling to visible
+    t =   495.96s     Wait for com.haydocs.reader to idle
+    t =   496.32s Waiting 15.0s for "drawToggle" Button to exist
+    t =   497.42s     Checking `Expect predicate `existsNoRetry == 1` for object "drawToggle" Button`
+    t =   497.42s         Checking existence of `"drawToggle" Button`
+    t =   499.89s Added attachment named '17-Пример RTF'
+    t =   499.89s Checking existence of `"BackButton" Button`
+    t =   500.23s Find the "BackButton" Button
+    t =   500.58s Tap "BackButton" Button
+    t =   500.58s     Wait for com.haydocs.reader to idle
+    t =   500.71s     Find the "BackButton" Button
+    t =   500.92s     Check for interrupting elements affecting "BackButton" Button
+    t =   501.03s         Wait for com.apple.springboard to idle
+    t =   501.16s     Synthesize event
+    t =   501.67s     Wait for com.haydocs.reader to idle
+    t =   501.94s Waiting 5.0s for "libraryMenu" Button to exist
+    t =   502.97s     Checking `Expect predicate `existsNoRetry == 1` for object "libraryMenu" Button`
+    t =   502.98s         Checking existence of `"libraryMenu" Button`
+    t =   504.07s Waiting 30.0s for "doc-Пример TXT" Button to exist
+    t =   505.12s     Checking `Expect predicate `existsNoRetry == 1` for object "doc-Пример TXT" Button`
+    t =   505.12s         Checking existence of `"doc-Пример TXT" Button`
+    t =   505.24s Tap "doc-Пример TXT" Button
+    t =   505.24s     Wait for com.haydocs.reader to idle
+    t =   505.26s     Find the "doc-Пример TXT" Button
+    t =   505.41s     Check for interrupting elements affecting "doc-Пример TXT" Button
+    t =   505.49s         Wait for com.apple.springboard to idle
+    t =   505.59s     Synthesize event
+    t =   505.94s     Wait for com.haydocs.reader to idle
+    t =   506.31s Waiting 15.0s for "drawToggle" Button to exist
+    t =   507.35s     Checking `Expect predicate `existsNoRetry == 1` for object "drawToggle" Button`
+    t =   507.35s         Checking existence of `"drawToggle" Button`
+    t =   509.75s Added attachment named '18-Пример TXT'
+    t =   509.76s Checking existence of `"BackButton" Button`
+    t =   510.03s Find the "BackButton" Button
+    t =   510.16s Tap "BackButton" Button
+    t =   510.16s     Wait for com.haydocs.reader to idle
+    t =   510.16s     Find the "BackButton" Button
+    t =   510.25s     Check for interrupting elements affecting "BackButton" Button
+    t =   510.29s         Wait for com.apple.springboard to idle
+    t =   510.39s     Synthesize event
+    t =   510.70s     Wait for com.haydocs.reader to idle
+    t =   510.82s Waiting 5.0s for "libraryMenu" Button to exist
+    t =   511.88s     Checking `Expect predicate `existsNoRetry == 1` for object "libraryMenu" Button`
+    t =   511.88s         Checking existence of `"libraryMenu" Button`
+    t =   513.00s Waiting 30.0s for "doc-Пример PDF" Button to exist
+    t =   514.02s     Checking `Expect predicate `existsNoRetry == 1` for object "doc-Пример PDF" Button`
+    t =   514.02s         Checking existence of `"doc-Пример PDF" Button`
+    t =   514.13s Tap "doc-Пример PDF" Button
+    t =   514.13s     Wait for com.haydocs.reader to idle
+    t =   514.14s     Find the "doc-Пример PDF" Button
+    t =   514.26s     Check for interrupting elements affecting "doc-Пример PDF" Button
+    t =   514.36s         Wait for com.apple.springboard to idle
+    t =   514.45s     Synthesize event
+    t =   514.78s     Wait for com.haydocs.reader to idle
+    t =   515.05s Waiting 15.0s for "drawToggle" Button to exist
+    t =   516.11s     Checking `Expect predicate `existsNoRetry == 1` for object "drawToggle" Button`
+    t =   516.11s         Checking existence of `"drawToggle" Button`
+    t =   518.50s Added attachment named '19-Пример PDF'
+    t =   518.50s Checking existence of `"drawToggle" Button`
+    t =   518.64s Find the "drawToggle" Button
+    t =   518.96s Tap "drawToggle" Button
+    t =   518.96s     Wait for com.haydocs.reader to idle
+    t =   518.98s     Find the "drawToggle" Button
+    t =   519.06s     Check for interrupting elements affecting "drawToggle" Button
+    t =   519.14s         Wait for com.apple.springboard to idle
+    t =   519.21s     Synthesize event
+    t =   519.53s     Wait for com.haydocs.reader to idle
+    t =   521.55s Press Window (First Match)[0.30, 0.30] for 0.1 seconds, then drag to Window (First Match)[0.70, 0.36] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =   521.55s     Wait for com.haydocs.reader to idle
+    t =   521.56s     Find the Window (First Match)
+    t =   521.59s     Check for interrupting elements affecting Window
+    t =   521.74s         Wait for com.apple.springboard to idle
+    t =   521.85s     Synthesize event
+    t =   521.86s         Find the Window at {{0.0, 0.0}, {466.0, 678.0}}
+    t =   521.92s         Find the Window at {{0.0, 0.0}, {466.0, 678.0}}
+    t =   521.95s         Find the Window at {{0.0, 0.0}, {466.0, 678.0}}
+    t =   521.99s         Find the Window at {{0.0, 0.0}, {466.0, 678.0}}
+    t =   522.03s         Find the Window at {{0.0, 0.0}, {466.0, 678.0}}
+    t =   522.76s     Wait for com.haydocs.reader to idle
+    t =   523.78s Checking existence of `"doneDrawing" Button`
+    t =   523.88s Find the "doneDrawing" Button
+    t =   523.99s Tap "doneDrawing" Button
+    t =   524.00s     Wait for com.haydocs.reader to idle
+    t =   524.00s     Find the "doneDrawing" Button
+    t =   524.14s     Check for interrupting elements affecting "doneDrawing" Button
+    t =   524.19s         Wait for com.apple.springboard to idle
+    t =   524.28s     Synthesize event
+    t =   524.61s     Wait for com.haydocs.reader to idle
+    t =   526.03s Checking existence of `"exportMenu" Button`
+    t =   526.40s Find the "exportMenu" Button
+    t =   526.95s Tap "exportMenu" Button
+    t =   526.96s     Wait for com.haydocs.reader to idle
+    t =   527.02s     Find the "exportMenu" Button
+    t =   527.25s     Check for interrupting elements affecting "exportMenu" Button
+    t =   527.31s         Wait for com.apple.springboard to idle
+    t =   527.38s     Synthesize event
+    t =   527.75s     Wait for com.haydocs.reader to idle
+    t =   528.88s Checking existence of `"exportWord" Button`
+    t =   529.03s Checking existence of `"exportWord" MenuItem`
+    t =   529.19s Checking existence of `"exportWord" Cell`
+    t =   529.40s Checking existence of `"exportWord" StaticText`
+    t =   529.55s Checking existence of `"exportWord" Switch`
+    t =   529.71s Checking existence of `"Word (.docx)" Button`
+    t =   529.90s Find the "Word (.docx)" Button
+    t =   530.16s Tap "Word (.docx)" Button
+    t =   530.16s     Wait for com.haydocs.reader to idle
+    t =   530.17s     Find the "Word (.docx)" Button
+    t =   530.41s     Check for interrupting elements affecting "Word (.docx)" Button
+    t =   530.57s         Wait for com.apple.springboard to idle
+    t =   530.67s     Synthesize event
+    t =   531.06s     Wait for com.haydocs.reader to idle
+    t =   531.29s Checking existence of `"moreMenu" Button`
+    t =   532.77s Find the "moreMenu" Button
+    t =   535.29s Added attachment named '19b-Пример PDF-word'
+    t =   535.29s Checking existence of `"moreMenu" Button`
+    t =   535.48s Find the "moreMenu" Button
+    t =   535.67s Checking existence of `Alert (First Match)`
+    t =   536.11s Checking existence of `"PopoverDismissRegion" Other`
+    t =   536.48s Tap "PopoverDismissRegion" Other
+    t =   536.49s     Wait for com.haydocs.reader to idle
+    t =   536.49s     Find the "PopoverDismissRegion" Other
+    t =   536.81s     Check for interrupting elements affecting "PopoverDismissRegion" Other
+    t =   536.89s         Wait for com.apple.springboard to idle
+    t =   536.97s     Synthesize event
+    t =   537.30s     Wait for com.haydocs.reader to idle
+    t =   539.31s Checking existence of `"moreMenu" Button`
+    t =   539.41s Find the "moreMenu" Button
+    t =   539.54s Checking existence of `"BackButton" Button`
+    t =   539.66s Find the "BackButton" Button
+    t =   539.79s Tap "BackButton" Button
+    t =   539.79s     Wait for com.haydocs.reader to idle
+    t =   539.81s     Find the "BackButton" Button
+    t =   539.90s     Check for interrupting elements affecting "BackButton" Button
+    t =   540.07s         Wait for com.apple.springboard to idle
+    t =   540.15s     Synthesize event
+    t =   540.57s     Wait for com.haydocs.reader to idle
+    t =   540.77s Waiting 5.0s for "libraryMenu" Button to exist
+    t =   541.83s     Checking `Expect predicate `existsNoRetry == 1` for object "libraryMenu" Button`
+    t =   541.84s         Checking existence of `"libraryMenu" Button`
+    t =   543.18s Checking existence of `"libraryMenu" Button`
+    t =   543.27s Find the "libraryMenu" Button
+    t =   543.80s Tap "libraryMenu" Button
+    t =   543.80s     Wait for com.haydocs.reader to idle
+    t =   543.81s     Find the "libraryMenu" Button
+    t =   543.95s     Check for interrupting elements affecting "libraryMenu" Button
+    t =   544.19s         Wait for com.apple.springboard to idle
+    t =   544.31s     Synthesize event
+    t =   544.75s     Wait for com.haydocs.reader to idle
+    t =   545.12s Checking existence of `"openFonts" Button`
+    t =   545.37s Find the "openFonts" Button
+    t =   545.63s Tap "openFonts" Button
+    t =   545.63s     Wait for com.haydocs.reader to idle
+    t =   545.66s     Find the "openFonts" Button
+    t =   545.76s     Check for interrupting elements affecting "openFonts" Button
+    t =   545.88s         Wait for com.apple.springboard to idle
+    t =   545.98s     Synthesize event
+    t =   546.31s     Wait for com.haydocs.reader to idle
+    t =   549.10s Added attachment named '20-fonts'
+    t =   549.10s Checking existence of `"libraryMenu" Button`
+    t =   549.33s Find the "libraryMenu" Button
+    t =   549.51s Checking existence of `"Готово" Button`
+    t =   549.67s Checking existence of `"Done" Button`
+    t =   549.80s Checking existence of `"Закрыть" Button`
+    t =   549.95s Find the "Закрыть" Button
+    t =   550.12s Tap "Закрыть" Button
+    t =   550.12s     Wait for com.haydocs.reader to idle
+    t =   550.13s     Find the "Закрыть" Button
+    t =   550.26s     Check for interrupting elements affecting "Закрыть" Button
+    t =   550.42s         Wait for com.apple.springboard to idle
+    t =   550.50s     Synthesize event
+    t =   550.85s     Wait for com.haydocs.reader to idle
+    t =   551.93s Checking existence of `"libraryMenu" Button`
+    t =   552.01s Find the "libraryMenu" Button
+    t =   552.12s Checking existence of `"libraryMenu" Button`
+    t =   552.19s Find the "libraryMenu" Button
+    t =   552.31s Tap "libraryMenu" Button
+    t =   552.31s     Wait for com.haydocs.reader to idle
+    t =   552.33s     Find the "libraryMenu" Button
+    t =   552.50s     Check for interrupting elements affecting "libraryMenu" Button
+    t =   552.60s         Wait for com.apple.springboard to idle
+    t =   552.71s     Synthesize event
+    t =   553.07s     Wait for com.haydocs.reader to idle
+    t =   553.11s Checking existence of `"openSettings" Button`
+    t =   553.24s Find the "openSettings" Button
+    t =   553.36s Tap "openSettings" Button
+    t =   553.36s     Wait for com.haydocs.reader to idle
+    t =   553.37s     Find the "openSettings" Button
+    t =   553.47s     Check for interrupting elements affecting "openSettings" Button
+    t =   553.54s         Wait for com.apple.springboard to idle
+    t =   553.62s     Synthesize event
+    t =   553.95s     Wait for com.haydocs.reader to idle
+    t =   555.76s Added attachment named '21-settings'
+    t =   555.76s Checking existence of `"libraryMenu" Button`
+    t =   555.94s Find the "libraryMenu" Button
+    t =   556.10s Checking existence of `"Готово" Button`
+    t =   556.23s Find the "Готово" Button
+    t =   556.42s Tap "Готово" Button
+    t =   556.42s     Wait for com.haydocs.reader to idle
+    t =   556.43s     Find the "Готово" Button
+    t =   556.55s     Check for interrupting elements affecting "Готово" Button
+    t =   556.67s         Wait for com.apple.springboard to idle
+    t =   556.77s     Synthesize event
+    t =   557.15s     Wait for com.haydocs.reader to idle
+    t =   558.20s Checking existence of `"libraryMenu" Button`
+    t =   558.32s Find the "libraryMenu" Button
+    t =   558.71s Added attachment named '22-library-end'
+    t =   558.76s Tear Down
+Test Case '-[HayDocsUITests.HayDocsUITests testTour]' passed (560.012 seconds).
+Test Suite 'HayDocsUITests' passed at 2026-11-26 20:43:52.010.
+	 Executed 1 test, with 0 failures (0 unexpected) in 560.012 (560.027) seconds
+Test Suite 'HayDocsUITests.xctest' passed at 2026-11-26 20:43:52.015.
+	 Executed 1 test, with 0 failures (0 unexpected) in 560.012 (560.032) seconds
+Test Suite 'All tests' passed at 2026-11-26 20:43:52.016.
+	 Executed 1 test, with 0 failures (0 unexpected) in 560.012 (560.044) seconds
+2026-11-26 20:43:52.652 xcodebuild[5516:21529] [MT] IDESchemeActionSDKRecord: operatingSystemBuild = <DVTBuildVersion 24A94232>, error = invalidDigitCount(94232).
+2026-11-26 20:43:52.661 xcodebuild[5516:21529] [MT] IDESchemeActionDeviceRecord: versionAndBuild = 27.2 (24B91016s), error = invalidDigitCount(91016).
+2026-11-26 20:43:52.675 xcodebuild[5516:21529] [MT] IDESchemeActionSDKRecord: operatingSystemBuild = <DVTBuildVersion 24A94232>, error = invalidDigitCount(94232).
+2026-11-26 20:43:52.675 xcodebuild[5516:21529] [MT] IDESchemeActionDeviceRecord: versionAndBuild = 27.2 (24B91016s), error = invalidDigitCount(91016).
+2026-11-26 20:43:52.741 xcodebuild[5516:21529] [MT] IDESchemeActionSDKRecord: operatingSystemBuild = <DVTBuildVersion 24A94232>, error = invalidDigitCount(94232).
+2026-11-26 20:43:52.741 xcodebuild[5516:21529] [MT] IDESchemeActionDeviceRecord: versionAndBuild = 27.2 (24B91016s), error = invalidDigitCount(91016).
+2026-11-26 20:43:53.020 xcodebuild[5516:21529] [MT] IDESchemeActionSDKRecord: operatingSystemBuild = <DVTBuildVersion 24A94232>, error = invalidDigitCount(94232).
+2026-11-26 20:43:53.020 xcodebuild[5516:21529] [MT] IDESchemeActionDeviceRecord: versionAndBuild = 27.2 (24B91016s), error = invalidDigitCount(91016).
+2026-11-26 20:43:53.020 xcodebuild[5516:21529] [MT] IDESchemeActionSDKRecord: operatingSystemBuild = <DVTBuildVersion 24A94232>, error = invalidDigitCount(94232).
+2026-11-26 20:43:53.020 xcodebuild[5516:21529] [MT] IDESchemeActionDeviceRecord: versionAndBuild = 27.2 (24B91016s), error = invalidDigitCount(91016).
+2026-11-26 20:43:53.022 xcodebuild[5516:21529] [MT] IDESchemeActionSDKRecord: operatingSystemBuild = <DVTBuildVersion 24A94232>, error = invalidDigitCount(94232).
+2026-11-26 20:43:53.022 xcodebuild[5516:21529] [MT] IDESchemeActionDeviceRecord: versionAndBuild = 27.2 (24B91016s), error = invalidDigitCount(91016).
+2026-11-26 20:43:53.524 xcodebuild[5516:21529] [MT] IDETestOperationsObserverDebug: 617.940 elapsed -- Testing started completed.
+2026-11-26 20:43:53.524 xcodebuild[5516:21529] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-26 20:43:53.524 xcodebuild[5516:21529] [MT] IDETestOperationsObserverDebug: 617.940 sec, +617.940 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/runner/work/HayDocs/HayDocs/build/UITests.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started

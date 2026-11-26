@@ -1,0 +1,48 @@
+2026-11-26 20:34:54 +0000 fonts: 74 bundled, 0 imported, system Armenian: []
+2026-11-26 20:34:54 +0000 engine fonts: 38 files, 74 faces
+2026-11-26 20:35:05 +0000 import Пример Word.docx as word
+2026-11-26 20:35:06 +0000 engine original.docx: {"armsciiRuns":0,"fallbackRuns":22,"legacyFonts":[],"missingFonts":["Arial AMU","GHEA Grapalat","Sylfaen"],"ok":true} in 1.51 s
+2026-11-26 20:35:06 +0000 engine dump engine-437720D9-original.docx.pdf
+2026-11-26 20:35:06 +0000 imported Пример Word: 2 pages, notes: ["Нет шрифтов: Arial AMU, GHEA Grapalat, Sylfaen. Армянский текст показан заменой; добавьте эти шрифты в «Шрифты» и выберите «Перерисовать»."]
+2026-11-26 20:35:06 +0000 import Пример TXT.txt as text
+2026-11-26 20:35:06 +0000 engine text.txt: {"armsciiRuns":0,"fallbackRuns":7,"legacyFonts":[],"missingFonts":["Aptos"],"ok":true} in 0.01 s
+2026-11-26 20:35:07 +0000 engine dump engine-EDF721F5-original.txt.pdf
+2026-11-26 20:35:08 +0000 imported Пример TXT: 1 pages, notes: []
+2026-11-26 20:35:08 +0000 import Пример RTF.rtf as rtf
+2026-11-26 20:35:08 +0000 engine original.rtf: {"armsciiRuns":0,"fallbackRuns":22,"legacyFonts":[],"missingFonts":["Arial AMU","GHEA Grapalat","Sylfaen"],"ok":true} in 0.03 s
+2026-11-26 20:35:08 +0000 engine dump engine-CBB15663-original.rtf.pdf
+2026-11-26 20:35:08 +0000 imported Пример RTF: 2 pages, notes: ["Нет шрифтов: Arial AMU, GHEA Grapalat, Sylfaen. Армянский текст показан заменой; добавьте эти шрифты в «Шрифты» и выберите «Перерисовать»."]
+2026-11-26 20:35:08 +0000 import Пример PDF.pdf as pdf
+2026-11-26 20:35:08 +0000 imported Пример PDF: 2 pages, notes: []
+2026-11-26 20:35:08 +0000 import Пример ODT.odt as odt
+2026-11-26 20:35:09 +0000 engine original.odt: {"armsciiRuns":0,"fallbackRuns":22,"legacyFonts":[],"missingFonts":["Arial AMU","GHEA Grapalat","Sylfaen"],"ok":true} in 0.03 s
+2026-11-26 20:35:09 +0000 engine dump engine-AE2D3531-original.odt.pdf
+2026-11-26 20:35:09 +0000 imported Пример ODT: 2 pages, notes: ["Нет шрифтов: Arial AMU, GHEA Grapalat, Sylfaen. Армянский текст показан заменой; добавьте эти шрифты в «Шрифты» и выберите «Перерисовать»."]
+2026-11-26 20:35:09 +0000 import Пример DOC.doc as word
+2026-11-26 20:35:09 +0000 engine original.doc: {"armsciiRuns":0,"fallbackRuns":22,"legacyFonts":[],"missingFonts":["Arial AMU","GHEA Grapalat","Sylfaen"],"ok":true} in 0.05 s
+2026-11-26 20:35:09 +0000 engine dump engine-DB33C86C-original.doc.pdf
+2026-11-26 20:35:09 +0000 imported Пример DOC: 2 pages, notes: ["Нет шрифтов: Arial AMU, GHEA Grapalat, Sylfaen. Армянский текст показан заменой; добавьте эти шрифты в «Шрифты» и выберите «Перерисовать»."]
+2026-11-26 20:35:09 +0000 import Пример ArmSCII.docx as word
+2026-11-26 20:35:09 +0000 engine original.docx: {"armsciiRuns":7,"fallbackRuns":0,"legacyFonts":["Arial Armenian","Times Armenian"],"missingFonts":[],"ok":true} in 0.03 s
+2026-11-26 20:35:09 +0000 engine dump engine-190EC487-original.docx.pdf
+2026-11-26 20:35:10 +0000 imported Пример ArmSCII: 1 pages, notes: ["Текст в старой кодировке ArmSCII (Arial Armenian, Times Armenian) переведён в Юникод."]
+2026-11-26 20:35:32 +0000 reader scroll: offset (0.0, 7.333333333333333), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:35:33 +0000 reader scroll: offset (0.0, 7.333333333333333), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:39:22 +0000 engine export Пример Word.docx: {"drawings":3,"inCells":0,"ok":true,"onPages":0,"pages":2,"pictures":0,"skippedPages":[]} in 0.25 s, 3 drawings, 0 pictures
+2026-11-26 20:39:36 +0000 engine export Пример Word.odt: {"drawings":3,"inCells":0,"ok":true,"onPages":0,"pages":2,"pictures":0,"skippedPages":[]} in 0.06 s, 3 drawings, 0 pictures
+2026-11-26 20:40:13 +0000 reader scroll: offset (0.0, 0.0), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:40:17 +0000 reader scroll: offset (0.0, 7.333333333333333), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:42:01 +0000 reader scroll: offset (0.0, 0.0), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:42:01 +0000 reader scroll: offset (0.0, 0.0), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:42:10 +0000 reader scroll: offset (0.0, 7.333333333333333), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:42:11 +0000 reader scroll: offset (0.0, 7.333333333333333), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:42:20 +0000 reader scroll: offset (0.0, 7.333333333333333), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:42:20 +0000 reader scroll: offset (0.0, 7.333333333333333), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:42:35 +0000 engine export Пример DOC.docx: {"drawings":1,"inCells":0,"ok":true,"onPages":0,"pages":2,"pictures":0,"skippedPages":[]} in 0.22 s, 1 drawings, 0 pictures
+2026-11-26 20:42:48 +0000 reader scroll: offset (0.0, 7.333333333333333), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:42:49 +0000 reader scroll: offset (0.0, 7.333333333333333), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:42:58 +0000 reader scroll: offset (0.0, 0.0), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:42:59 +0000 reader scroll: offset (0.0, 0.0), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:43:07 +0000 reader scroll: offset (0.0, 7.333333333333333), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:43:07 +0000 reader scroll: offset (0.0, 7.333333333333333), inset UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), adjusted UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), safe area UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0), frame (0.0, 0.0, 382.0, 562.0)
+2026-11-26 20:43:23 +0000 engine export Пример PDF.docx: {"drawings":0,"inCells":0,"ok":true,"onPages":0,"pages":0,"pictures":2,"skippedPages":[]} in 0.01 s, 0 drawings, 2 pictures

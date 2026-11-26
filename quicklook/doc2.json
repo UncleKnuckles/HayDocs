@@ -1,0 +1,34 @@
+{
+ "width": 595,
+ "height": 1682,
+ "images": [
+  {
+   "box": {
+    "x": 2,
+    "y": 0,
+    "w": 592,
+    "h": 837
+   },
+   "position": "static",
+   "top": "auto",
+   "left": "auto",
+   "marginLeft": "0px",
+   "marginTop": "0px",
+   "beside": []
+  },
+  {
+   "box": {
+    "x": 2,
+    "y": 837,
+    "w": 592,
+    "h": 837
+   },
+   "position": "static",
+   "top": "auto",
+   "left": "auto",
+   "marginLeft": "0px",
+   "marginTop": "0px",
+   "beside": []
+  }
+ ]
+}
