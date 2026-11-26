@@ -19,8 +19,8 @@
 //!
 //! Pages that have no text to put drawings on (pages added in the app, PDF pages, photos and
 //! scans) come from the app as pictures with the ink drawn in and become whole pages: after the
-//! text, or the whole document when there is no text. Each is a picture in the text on a page of
-//! its size with no margins, which those previews show one below the other as well.
+//! text, or the whole document when there is no text. Each is a picture in the text (alone, on a
+//! page of its size with no margins), which those previews show one below the other as well.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -29,9 +29,9 @@ use serde_json::Value;
 use wordcraft_doc::numbering::Level;
 use wordcraft_doc::para::{Anchor, COLUMN_BREAK, Float, PAGE_BREAK, Wrap};
 use wordcraft_doc::props::LineSpacing;
-use wordcraft_doc::section::{HeaderSet, NumFormat, SectionStart};
+use wordcraft_doc::section::{NumFormat, SectionStart};
 use wordcraft_doc::{
-    Align, CharProps, Document, InlineObject, Paragraph, PartKind, Pos, SectionProps, StoryRef,
+    Align, CharProps, Document, InlineObject, Paragraph, Pos, SectionProps, StoryRef,
 };
 use wordcraft_engine::layout::{DocLayout, LayoutCache, LayoutOptions, LineEnd, Placed};
 use wordcraft_geom::{Point, Rect};
@@ -48,8 +48,8 @@ const MAX_PAGES: usize = 2_000;
 const MAX_DRAWINGS: usize = 5_000;
 /// The largest side of a drawing or a page, points.
 const MAX_SIDE: f32 = 4_000.0;
-/// How much shorter than its page a page's picture is, points: room for the depth of the type
-/// below the picture's line, and for a blank header and footer.
+/// How much shorter than its room a page's picture is, points: room for the depth of the type
+/// below the picture's line.
 const PICTURE_SLACK: f32 = 4.0;
 /// How much farther than the nearest text a paragraph that starts on the page may be and still
 /// hold a drawing, and how far below the paragraph's top the drawing's middle may be (points).
@@ -230,6 +230,8 @@ pub fn export(req: &ExportRequest, opts: &Options) -> Result<ExportReport, Strin
         }
     };
 
+    // The room for text on the last page of the document's own text (none without one).
+    let mut text_room = None;
     if req.input.is_some() {
         // Laid out as the app's PDF is: with the Armenian fonts in place of those without
         // Armenian letters. That changes fonts only, so places in the text stay the same.
@@ -244,6 +246,7 @@ pub fn export(req: &ExportRequest, opts: &Options) -> Result<ExportReport, Strin
         };
         let layout = lay(&doc);
         report.pages = layout.pages.len();
+        text_room = Some(text_room_of(&doc, &layout));
         put_drawings(
             &mut doc,
             &layout,
@@ -256,7 +259,7 @@ pub fn export(req: &ExportRequest, opts: &Options) -> Result<ExportReport, Strin
         report.skipped_pages = pages_of(&req.drawings);
     }
 
-    report.pictures = add_picture_pages(&mut doc, &req.pictures, req.input.is_none())?;
+    report.pictures = add_picture_pages(&mut doc, &req.pictures, text_room)?;
     if ext == "odt" {
         keep_normal_font(&mut doc);
         plain_bullets(&mut doc);
@@ -875,70 +878,128 @@ pub fn check_saved(req: &ExportRequest, opts: &Options) -> Result<Vec<Option<(f3
         .collect())
 }
 
-/// Add `pictures` as whole pages at the end, each a picture in the text on a page of its own size
-/// with no margins. `alone`: the document has nothing else (its first, empty paragraph holds the
-/// first page). Returns how many were added.
+/// Add `pictures` as whole pages at the end, each a picture in the text. Returns how many were
+/// added.
+///
+/// `after`: the room for the text on the last page of the document's own text, where the pages
+/// follow in its last section, each picture as large as that room allows after a page break.
+/// `None`: the document has nothing else (its first, empty paragraph holds the first page), and
+/// each page is a page of its picture's size with no margins.
 ///
 /// In the text, not floating behind it: iPhone and Mac previews of Word files (Quick Look: Files,
 /// Mail, WhatsApp) show the document as one long page, put a floating picture by its offsets from
 /// the top of the whole document and fade one behind the text to a quarter, so every page lay
-/// faint on top of the first one there.
+/// faint on top of the first one there. They also lay all of it out as wide as the first
+/// section's text and cut off what is wider, so no picture is wider than that.
 fn add_picture_pages(
     doc: &mut Document,
     pictures: &[PagePicture],
-    alone: bool,
+    after: Option<Rect>,
 ) -> Result<usize, String> {
-    let bands = if alone || pictures.is_empty() {
-        None
-    } else {
-        blank_bands(doc)
-    };
+    let mut widest = after.map(|_| text_width(first_section(doc)));
     let mut added = 0;
     for (i, picture) in pictures.iter().enumerate() {
         let bytes = read_picture(&picture.path)?;
         let ext = picture_ext(&bytes)
             .ok_or_else(|| format!("{}: not a PNG or JPEG picture", picture.path.display()))?;
         let media = doc.add_media(bytes, ext);
-        let mut page = page_section(picture);
-        if let Some((headers, footers)) = &bands {
-            page.headers = headers.clone();
-            page.footers = footers.clone();
-        }
-        let mut p = picture_paragraph(media, picture)?;
-        if alone && i == 0 {
-            // The blank document's own empty paragraph becomes the first page.
-            doc.last_section = page;
-            match last_paragraph(doc) {
-                Some(last) => *last = p,
-                None => doc.body.push(wordcraft_doc::para_block(p)),
-            }
-        } else if doc.last_section == page {
-            p.props.page_break_before = Some(true);
-            doc.body.push(wordcraft_doc::para_block(p));
-        } else {
-            // A new section where the page changes (after the text, always: no margins).
-            let ended = std::mem::replace(&mut doc.last_section, page);
-            match last_paragraph(doc) {
-                Some(last) if last.section.is_none() => last.section = Some(Box::new(ended)),
-                _ => {
-                    let mut holder = Paragraph::new();
-                    holder.section = Some(Box::new(ended));
-                    doc.body.push(wordcraft_doc::para_block(holder));
+        let Some(room) = after else {
+            let widest = *widest.get_or_insert(picture.w);
+            let mut p = picture_paragraph(
+                media,
+                picture,
+                (picture.w.min(widest), picture.h - PICTURE_SLACK),
+            )?;
+            let page = page_section(picture);
+            if i == 0 {
+                // The blank document's own empty paragraph becomes the first page.
+                doc.last_section = page;
+                match last_paragraph(doc) {
+                    Some(last) => *last = p,
+                    None => doc.body.push(wordcraft_doc::para_block(p)),
                 }
+            } else if doc.last_section == page {
+                p.props.page_break_before = Some(true);
+                doc.body.push(wordcraft_doc::para_block(p));
+            } else {
+                // A new section where the page's size changes.
+                let ended = std::mem::replace(&mut doc.last_section, page);
+                match last_paragraph(doc) {
+                    Some(last) if last.section.is_none() => last.section = Some(Box::new(ended)),
+                    _ => {
+                        let mut holder = Paragraph::new();
+                        holder.section = Some(Box::new(ended));
+                        doc.body.push(wordcraft_doc::para_block(holder));
+                    }
+                }
+                doc.body.push(wordcraft_doc::para_block(p));
             }
-            doc.body.push(wordcraft_doc::para_block(p));
-        }
+            added += 1;
+            continue;
+        };
+        // After the text: in its last section, under its header, as large as its text's room
+        // allows (with room to spare for a header that Word sets taller than the app does).
+        let columns = &doc.last_section.columns;
+        let column = if columns.count > 1 {
+            let n = columns.count.min(45) as f32;
+            ((room.w - columns.space * (n - 1.0)) / n).max(room.w / n / 2.0)
+        } else {
+            room.w
+        };
+        let width = column.min(widest.unwrap_or(column));
+        let height = room.h - PICTURE_SLACK - room.h * 0.03;
+        let mut p = picture_paragraph(media, picture, (width, height))?;
+        p.props.page_break_before = Some(true);
+        doc.body.push(wordcraft_doc::para_block(p));
         added += 1;
     }
     Ok(added)
 }
 
-/// A paragraph holding page picture `media` in its line: centred, with no indents or spacing,
-/// single lines and the smallest type (a picture in the text sits on the line's baseline, so the
-/// type's depth below it adds to the line), the picture a little smaller than the page so that
-/// the line fits on it.
-fn picture_paragraph(media: String, picture: &PagePicture) -> Result<Paragraph, String> {
-    let scale = ((picture.h - PICTURE_SLACK) / picture.h).clamp(0.5, 1.0);
+/// The room for text on the last page of `layout` (laid out from `doc`): its body area, under the
+/// header and above the footer; from the last section's margins when nothing was laid out.
+fn text_room_of(doc: &Document, layout: &DocLayout) -> Rect {
+    match layout.pages.last() {
+        Some(pg) if pg.body.w > 1.0 && pg.body.h > 1.0 => pg.body,
+        _ => {
+            let s = &doc.last_section;
+            Rect::new(
+                s.margin_left,
+                s.margin_top,
+                text_width(s),
+                (s.page_h - s.margin_top - s.margin_bottom).max(1.0),
+            )
+        }
+    }
+}
+
+/// The first section's page setup: the section that ends at the first section break, else the
+/// last one.
+fn first_section(doc: &Document) -> &SectionProps {
+    doc.body
+        .iter()
+        .find_map(|b| match &**b {
+            wordcraft_doc::Block::Para(p) => p.section.as_deref(),
+            _ => None,
+        })
+        .unwrap_or(&doc.last_section)
+}
+
+fn text_width(s: &SectionProps) -> f32 {
+    (s.page_w - s.margin_left - s.margin_right - s.gutter).max(1.0)
+}
+
+/// A paragraph holding page picture `media` in its line, as large as `room` (width, height)
+/// allows: centred, with no indents or spacing, single lines and the smallest type (a picture in
+/// the text sits on the line's baseline, so the type's depth below it adds to the line).
+fn picture_paragraph(
+    media: String,
+    picture: &PagePicture,
+    room: (f32, f32),
+) -> Result<Paragraph, String> {
+    let scale = (room.0 / picture.w)
+        .min(room.1 / picture.h)
+        .clamp(0.05, 1.0);
     let tiny = CharProps {
         size: Some(1.0),
         ..CharProps::default()
@@ -968,46 +1029,6 @@ fn picture_paragraph(media: String, picture: &PagePicture) -> Result<Paragraph, 
     p.insert_object(0, object, &tiny)
         .map_err(|e| e.to_string())?;
     Ok(p)
-}
-
-/// A header and a footer that show nothing, for picture pages after text that has headers or
-/// footers (`None` when it has none): a section that names none shows those of the section before
-/// it, over the picture, and a header taller than the margin pushes the text (the picture) down.
-fn blank_bands(doc: &mut Document) -> Option<(HeaderSet, HeaderSet)> {
-    let named = |s: &SectionProps| {
-        [&s.headers, &s.footers]
-            .iter()
-            .any(|h| h.default.is_some() || h.first.is_some() || h.even.is_some())
-    };
-    let any = named(&doc.last_section)
-        || doc.body.iter().any(|b| {
-            matches!(&**b, wordcraft_doc::Block::Para(p) if p.section.as_deref().is_some_and(named))
-        });
-    if !any {
-        return None;
-    }
-    let blank = || {
-        let mut p = Paragraph::new();
-        p.props.space_before = Some(0.0);
-        p.props.space_after = Some(0.0);
-        p.props.line_spacing = Some(LineSpacing::Exactly(1.0));
-        p.mark = CharProps {
-            size: Some(1.0),
-            ..CharProps::default()
-        };
-        wordcraft_doc::para_block(p)
-    };
-    let header = doc.add_part(PartKind::Header, vec![blank()]);
-    let footer = doc.add_part(PartKind::Footer, vec![blank()]);
-    if header == 0 || footer == 0 {
-        return None;
-    }
-    let set = |id: u32| HeaderSet {
-        default: Some(id),
-        first: Some(id),
-        even: Some(id),
-    };
-    Some((set(header), set(footer)))
 }
 
 fn last_paragraph(doc: &mut Document) -> Option<&mut Paragraph> {
@@ -1146,19 +1167,25 @@ mod tests {
                 })
                 .collect()
         };
-
-        // Pictures only: the blank document's paragraph holds the first page; pages of one size
-        // share a section, each after a page break; a new section where the size changes.
-        let mut doc = Document::new();
-        assert_eq!(add_picture_pages(&mut doc, &pictures, true).unwrap(), 3);
-        let ps = paragraphs(&doc);
-        assert_eq!(ps.len(), 3);
-        for (p, pic) in ps.iter().zip(&pictures) {
+        let frame = |p: &Paragraph| {
             let (w, h, f) = p.objects.iter().find_map(InlineObject::frame).unwrap();
             assert_eq!(f.wrap, Wrap::Inline);
-            assert!(h <= pic.h - PICTURE_SLACK + 0.01 && w <= pic.w, "{w} x {h}");
+            (w, h)
+        };
+
+        // Pictures only: the blank document's paragraph holds the first page; pages of one size
+        // share a section, each after a page break; a new section where the size changes; no
+        // picture wider than the first page (Quick Look's width).
+        let mut doc = Document::new();
+        assert_eq!(add_picture_pages(&mut doc, &pictures, None).unwrap(), 3);
+        let ps = paragraphs(&doc);
+        assert_eq!(ps.len(), 3);
+        for p in &ps {
+            let (w, h) = frame(p);
+            assert!(w <= 595.0 && h <= 842.0 - PICTURE_SLACK + 0.01, "{w} x {h}");
             assert_eq!(p.props.space_after, Some(0.0));
         }
+        assert!(frame(&ps[0]).1 > 837.0);
         assert_eq!(ps[0].props.page_break_before, None);
         assert_eq!(ps[1].props.page_break_before, Some(true));
         let first = ps[1]
@@ -1174,29 +1201,26 @@ mod tests {
             (842.0, 595.0)
         );
 
-        // After text with a header: a section of their own, with a header and a footer that show
-        // nothing instead of the text's.
+        // After text: in its last section after page breaks, as large as its room and its first
+        // section's text width allow.
         let mut doc = Document::new();
-        let header = doc.add_part(PartKind::Header, Vec::new());
-        doc.last_section.headers.default = Some(header);
         let text = doc.last_section.clone();
+        let room = Rect::new(72.0, 72.0, 468.0, 648.0);
         assert_eq!(
-            add_picture_pages(&mut doc, &pictures[..1], false).unwrap(),
-            1
+            add_picture_pages(&mut doc, &pictures, Some(room)).unwrap(),
+            3
         );
         let ps = paragraphs(&doc);
-        assert_eq!(ps.len(), 2);
-        assert_eq!(ps[0].section.as_deref(), Some(&text));
-        let bands = &doc.last_section;
-        assert!(bands.headers.default.is_some_and(|id| id != header));
-        assert!(bands.footers.default.is_some());
-        assert_eq!(bands.margin_top, 0.0);
-
-        // After text without headers or footers: none added.
-        let mut doc = Document::new();
-        add_picture_pages(&mut doc, &pictures[..1], false).unwrap();
-        assert_eq!(doc.last_section.headers.default, None);
-        assert!(doc.parts.is_empty());
+        assert_eq!(ps.len(), 4);
+        assert_eq!(doc.last_section, text);
+        assert!(ps.iter().all(|p| p.section.is_none()));
+        for p in &ps[1..] {
+            assert_eq!(p.props.page_break_before, Some(true));
+            let (w, h) = frame(p);
+            assert!(w <= 468.0 + 0.01 && h <= 648.0 - PICTURE_SLACK, "{w} x {h}");
+        }
+        let scale = (468.0_f32 / 595.0).min((648.0 - PICTURE_SLACK - 648.0 * 0.03) / 842.0);
+        assert!((frame(&ps[1]).0 - 595.0 * scale).abs() < 0.01);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
