@@ -49,9 +49,9 @@ jobs:
             ~/.cargo/git/db
             engine/target
             engine/vendor
-          key: engine2-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh') }}-${{ hashFiles('engine/src/**') }}
+          key: engine2-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh', 'engine/patches/**') }}-${{ hashFiles('engine/src/**') }}
           restore-keys: |
-            engine2-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh') }}-
+            engine2-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh', 'engine/patches/**') }}-
             engine2-
             engine-
 
@@ -77,7 +77,7 @@ jobs:
             ~/.cargo/git/db
             engine/target
             engine/vendor
-          key: engine2-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh') }}-${{ hashFiles('engine/src/**') }}
+          key: engine2-${{ hashFiles('engine/Cargo.lock', 'engine/Cargo.toml', 'engine/fetch-wordcraft.sh', 'engine/patches/**') }}-${{ hashFiles('engine/src/**') }}
 
       - name: Xcode project
         run: xcodegen generate

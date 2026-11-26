@@ -33,3 +33,8 @@ debug = 0
 # PDF writer from craft-libs.
 [patch.crates-io]
 krilla = { git = "https://github.com/storytold/craft-libs", rev = "b436ae992591173ce53fdb1314421ba2d8897e49" }
+
+# craft-libs' Word 97-2003 reader with table cell borders and widths read, made by
+# fetch-wordcraft.sh from craft-libs and patches/craft-doc-binary.patch.
+[patch."https://github.com/storytold/craft-libs"]
+craft-doc-binary = { path = "vendor/craft-doc-binary" }

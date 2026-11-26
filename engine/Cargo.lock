@@ -385,7 +385,6 @@ dependencies = [
 [[package]]
 name = "craft-doc-binary"
 version = "0.1.0"
-source = "git+https://github.com/storytold/craft-libs?rev=b436ae992591173ce53fdb1314421ba2d8897e49#b436ae992591173ce53fdb1314421ba2d8897e49"
 dependencies = [
  "chrono",
  "craft-cfb",

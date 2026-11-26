@@ -20,8 +20,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde_json::Value;
+use wordcraft_doc::numbering::Level;
 use wordcraft_doc::para::{Anchor, COLUMN_BREAK, Float, PAGE_BREAK, Wrap};
-use wordcraft_doc::section::SectionStart;
+use wordcraft_doc::section::{NumFormat, SectionStart};
 use wordcraft_doc::{CharProps, Document, InlineObject, Paragraph, Pos, SectionProps, StoryRef};
 use wordcraft_engine::layout::{DocLayout, LayoutCache, LayoutOptions, LineEnd, Placed};
 use wordcraft_geom::{Point, Rect};
@@ -236,6 +237,7 @@ pub fn export(req: &ExportRequest, opts: &Options) -> Result<ExportReport, Strin
     report.pictures = add_picture_pages(&mut doc, &req.pictures, req.input.is_none())?;
     if ext == "odt" {
         keep_normal_font(&mut doc);
+        plain_bullets(&mut doc);
     }
     let bytes = wordcraft_engine::io::save_bytes(&format!("document.{ext}"), &doc)?;
     std::fs::write(&req.output, bytes).map_err(|e| format!("{}: {e}", req.output.display()))?;
@@ -250,6 +252,78 @@ fn keep_normal_font(doc: &mut Document) {
     if !normal.trim().is_empty() && doc.styles.default_chr.font.as_deref() != Some(normal.as_str())
     {
         Arc::make_mut(&mut doc.styles).default_chr.font = Some(normal);
+    }
+}
+
+/// Bullets in symbol fonts (Word's round bullet is U+F0B7 in Symbol, its square one U+F0A7 in
+/// Wingdings) become the Unicode characters they show, in the text's font. The ODT writer keeps
+/// a bullet's character but not its font, so those characters would show as empty boxes.
+fn plain_bullets(doc: &mut Document) {
+    fn fix(level: &mut Level) {
+        if level.format != NumFormat::Bullet {
+            return;
+        }
+        let mut chars = level.text.chars();
+        let (Some(c), None) = (chars.next(), chars.next()) else {
+            return;
+        };
+        let font = level
+            .chr
+            .font
+            .as_deref()
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        let symbol_font =
+            font.contains("symbol") || font.contains("wingdings") || font.contains("webdings");
+        let code = c as u32;
+        // Symbol fonts have their signs at U+F020-U+F0FF, or at the plain 8-bit code.
+        let low = match code {
+            0xF020..=0xF0FF => code - 0xF000,
+            0x20..=0xFF if symbol_font => code,
+            _ => return,
+        };
+        let plain = if font.contains("wingdings") {
+            match low {
+                0x6C => '●',
+                0x6E => '■',
+                0x71 => '❑',
+                0x75 => '◆',
+                0x76 => '❖',
+                0x9F => '•',
+                0xA7 => '▪',
+                0xA8 => '◻',
+                0xD8 => '➢',
+                0xE0 => '➔',
+                0xFB => '✗',
+                0xFC => '✓',
+                _ => '•',
+            }
+        } else if font.contains("symbol") {
+            match low {
+                0x2D => '−',
+                0xA7 => '♣',
+                0xA8 => '♦',
+                0xA9 => '♥',
+                0xAA => '♠',
+                0xAE => '→',
+                0xDE => '⇒',
+                _ => '•',
+            }
+        } else {
+            '•'
+        };
+        level.text = plain.to_string();
+        level.chr.font = None;
+        level.chr.sym_font = None;
+    }
+    let numbering = Arc::make_mut(&mut doc.numbering);
+    for list in &mut numbering.abstracts {
+        list.levels.iter_mut().for_each(fix);
+    }
+    for num in &mut numbering.nums {
+        num.level_overrides
+            .iter_mut()
+            .for_each(|(_, level)| fix(level));
     }
 }
 
@@ -850,6 +924,47 @@ mod tests {
         assert_eq!(first_word_end(t, 7, t.len()), 9);
         assert_eq!(first_word_end("   ", 0, 3), 0);
         assert_eq!(first_word_end("Բարև ձեզ", 0, 13), "Բարև".len());
+    }
+
+    #[test]
+    fn symbol_font_bullets_become_unicode() {
+        let level = |text: &str, font: &str| Level {
+            format: NumFormat::Bullet,
+            text: text.to_string(),
+            chr: CharProps {
+                font: Some(font.to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut doc = Document::new();
+        let numbering = Arc::make_mut(&mut doc.numbering);
+        numbering
+            .abstracts
+            .push(wordcraft_doc::numbering::AbstractNum {
+                levels: vec![
+                    level("\u{F0B7}", "Symbol"),
+                    level("o", "Courier New"),
+                    level("\u{F0A7}", "Wingdings"),
+                    level("\u{B7}", "Symbol"),
+                ],
+                ..Default::default()
+            });
+        plain_bullets(&mut doc);
+        let shown: Vec<(&str, Option<&str>)> = doc.numbering.abstracts[0]
+            .levels
+            .iter()
+            .map(|l| (l.text.as_str(), l.chr.font.as_deref()))
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                ("\u{2022}", None),
+                ("o", Some("Courier New")),
+                ("\u{25AA}", None),
+                ("\u{2022}", None)
+            ]
+        );
     }
 
     #[test]
