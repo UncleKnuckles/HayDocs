@@ -1,0 +1,31 @@
+name: Quick Look probe
+
+on:
+  push:
+    branches: [ql-probe]
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: iPhone simulator (WKWebView and QLPreviewController)
+        continue-on-error: true
+        run: sh probe/sim.sh
+      - name: macOS Quick Look
+        continue-on-error: true
+        run: sh probe/macos.sh
+      - name: Publish
+        if: always()
+        run: |
+          mkdir -p out
+          cd out
+          git init -q
+          git checkout -q -b ql-probe-results
+          git add -A
+          git -c user.name="HayDocs CI" -c user.email="ci@users.noreply.github.com" commit -qm "Probe run ${GITHUB_RUN_NUMBER}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ql-probe-results
