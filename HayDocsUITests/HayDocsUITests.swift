@@ -189,7 +189,8 @@ final class HayDocsUITests: XCTestCase {
         tap(["exportMenu", "Поделиться"])
         sleep(1)
         shot("08-export-menu")
-        tap(["exportPDFWithDrawings", "PDF с рисунками"])
+        // Menu items are found by their titles (SwiftUI menus show no identifiers).
+        tap(["exportPDFWithDrawings", "PDF"])
         // Wait for the share sheet: the reader's buttons stop being hittable under it.
         waitForShareSheet(timeout: 15)
         shot("09-share-sheet")
