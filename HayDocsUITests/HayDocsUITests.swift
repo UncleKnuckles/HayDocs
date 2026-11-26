@@ -90,11 +90,19 @@ final class HayDocsUITests: XCTestCase {
     }
 
     /// The share sheet is a floating card without a Close button: tap outside it, then drag it down.
+    /// An error alert instead of the sheet fails the test with its text.
     private func dismissShareSheet() {
         let window = app.windows.firstMatch
         let reader = app.buttons["moreMenu"]
         for attempt in 0..<5 {
             if isReady(reader) { return }
+            let alert = app.alerts.firstMatch
+            if alert.exists {
+                XCTFail("alert instead of the share sheet: \(alert.label) \(alert.staticTexts.allElementsBoundByIndex.map(\.label))")
+                alert.buttons.firstMatch.tap()
+                sleep(1)
+                continue
+            }
             let region = app.otherElements["PopoverDismissRegion"]
             if region.exists {
                 region.tap()
@@ -107,6 +115,33 @@ final class HayDocsUITests: XCTestCase {
             sleep(2)
         }
         if !isReady(reader) { XCTFail("share sheet did not close") }
+    }
+
+    /// Waits until the share sheet covers the reader (its buttons stop being hittable).
+    private func waitForShareSheet(timeout: TimeInterval) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while isReady(app.buttons["moreMenu"]) && Date() < deadline { usleep(500_000) }
+        sleep(2)
+    }
+
+    /// Export menu, one item, the share sheet (shot), closed again.
+    private func exportAndShare(_ keys: [String], shot name: String) {
+        tap(["exportMenu", "Поделиться"])
+        sleep(1)
+        tap(keys)
+        // While the file is made a note covers the pages; the share sheet follows.
+        waitForShareSheet(timeout: 120)
+        shot(name)
+        dismissShareSheet()
+    }
+
+    private func drawLine() {
+        tap(["drawToggle"])
+        sleep(2)
+        stroke(from: CGVector(dx: 0.30, dy: 0.30), to: CGVector(dx: 0.70, dy: 0.36))
+        sleep(1)
+        tap(["doneDrawing", "Готово"])
+        sleep(1)
     }
 
     private func stroke(from a: CGVector, to b: CGVector) {
@@ -156,10 +191,21 @@ final class HayDocsUITests: XCTestCase {
         shot("08-export-menu")
         tap(["exportPDFWithDrawings", "PDF с рисунками"])
         // Wait for the share sheet: the reader's buttons stop being hittable under it.
-        let deadline = Date().addingTimeInterval(15)
-        while isReady(app.buttons["moreMenu"]) && Date() < deadline { usleep(500_000) }
-        sleep(2)
+        waitForShareSheet(timeout: 15)
         shot("09-share-sheet")
+        dismissShareSheet()
+
+        // Word and ODT with the drawing on the text; all pages as pictures.
+        exportAndShare(["exportWord", "Word (.docx)"], shot: "09b-share-word")
+        exportAndShare(["exportODT", "ODT (OpenDocument)"], shot: "09c-share-odt")
+        tap(["exportMenu", "Поделиться"])
+        sleep(1)
+        tap(["exportImagesMenu", "Картинки страниц (PNG)"])
+        sleep(1)
+        shot("09d-images-menu")
+        tap(["exportAllPageImages", "Все страницы"])
+        waitForShareSheet(timeout: 60)
+        shot("09e-share-images")
         dismissShareSheet()
 
         tap(["moreMenu", "Ещё"])
@@ -204,6 +250,11 @@ final class HayDocsUITests: XCTestCase {
         for (index, title) in ["Пример ArmSCII", "Пример ODT", "Пример DOC", "Пример RTF", "Пример TXT", "Пример PDF"].enumerated() {
             open(title)
             shot(String(format: "%02d-%@", 14 + index, title))
+            if title == "Пример DOC" || title == "Пример PDF" {
+                // An old Word file and a PDF (pages as pictures) to Word, with a line drawn.
+                drawLine()
+                exportAndShare(["exportWord", "Word (.docx)"], shot: String(format: "%02db-%@-word", 14 + index, title))
+            }
             back()
         }
 

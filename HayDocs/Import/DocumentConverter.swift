@@ -5,6 +5,8 @@ import UIKit
 struct ConversionResult {
     let pdfData: Data
     let notes: [String]
+    /// The document engine made the pages.
+    var byEngine = false
 }
 
 enum ConversionError: LocalizedError {
@@ -64,29 +66,35 @@ enum DocumentConverter {
         }
     }
 
+    /// The file to hand the engine for `url`, in `work`: text decoded to UTF-8 (old Armenian
+    /// and Russian encodings too), other files under a name whose extension the engine reads.
+    /// Returns it and a note when the text was in ArmSCII-8.
+    static func engineInput(for url: URL, kind: DocumentKind, in work: URL) throws -> (url: URL, note: String?) {
+        let ext = url.pathExtension.lowercased()
+        if kind == .text {
+            let decoded = TextDecoder.decode(try Data(contentsOf: url), armscii: AppSettings.armsciiConversion)
+            let note = decoded.encodingName == "ArmSCII-8" ? "Текст в кодировке ArmSCII-8 переведён в Юникод." : nil
+            let isMarkdown = ext == "md" || ext == "markdown"
+            let input = work.appendingPathComponent(isMarkdown ? "text.md" : "text.txt")
+            try decoded.text.write(to: input, atomically: true, encoding: .utf8)
+            return (input, note)
+        }
+        if !engineExtensions.contains(ext) {
+            let input = work.appendingPathComponent(kind == .html ? "page.html" : "document.\(ext)")
+            try FileManager.default.copyItem(at: url, to: input)
+            return (input, nil)
+        }
+        return (url, nil)
+    }
+
     private static func convertWithEngine(_ url: URL, kind: DocumentKind) async throws -> ConversionResult {
         let fm = FileManager.default
         let work = fm.temporaryDirectory.appendingPathComponent("Convert-\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: work, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: work) }
 
-        var notes: [String] = []
-        var input = url
-        let ext = url.pathExtension.lowercased()
-        if kind == .text {
-            // Any text file: decoded here (old Armenian and Russian encodings too), handed over as UTF-8.
-            let decoded = TextDecoder.decode(try Data(contentsOf: url), armscii: AppSettings.armsciiConversion)
-            if decoded.encodingName == "ArmSCII-8" {
-                notes.append("Текст в кодировке ArmSCII-8 переведён в Юникод.")
-            }
-            let isMarkdown = ext == "md" || ext == "markdown"
-            input = work.appendingPathComponent(isMarkdown ? "text.md" : "text.txt")
-            try decoded.text.write(to: input, atomically: true, encoding: .utf8)
-        } else if !engineExtensions.contains(ext) {
-            let name = kind == .html ? "page.html" : "document.\(ext)"
-            input = work.appendingPathComponent(name)
-            try fm.copyItem(at: url, to: input)
-        }
+        let (input, note) = try engineInput(for: url, kind: kind, in: work)
+        let notes = note.map { [$0] } ?? []
 
         let output = work.appendingPathComponent("document.pdf")
         var report = try await WordEngine.shared.convert(WordEngine.Request(input: input, output: output))
@@ -101,6 +109,6 @@ enum DocumentConverter {
             TestHooks.dump(name, data: data)
             Log.info("engine dump \(name)")
         }
-        return ConversionResult(pdfData: data, notes: notes + report.notes)
+        return ConversionResult(pdfData: data, notes: notes + report.notes, byEngine: true)
     }
 }

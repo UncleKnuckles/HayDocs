@@ -16,7 +16,7 @@ struct SearchHit: Identifiable {
 }
 
 enum ExportKind {
-    case pdfWithDrawings, pdfClean, originalFile, pageImage
+    case pdfWithDrawings, pdfClean, originalFile, pageImage, allPageImages, word, odt
 }
 
 /// The first responder the tool picker is shown for while drawing.
@@ -40,6 +40,7 @@ final class ReaderController: NSObject, ObservableObject {
     @Published private(set) var canUndo = false
     @Published private(set) var canRedo = false
     @Published private(set) var isBusy = false
+    @Published private(set) var busyText = "Перерисовываю…"
     @Published private(set) var fingerDrawing = AppSettings.fingerDrawing
     @Published private(set) var twoPages = false
     @Published var showThumbnails = false {
@@ -296,6 +297,7 @@ final class ReaderController: NSObject, ObservableObject {
         let size = last.map { PDFExporter.displayRect(for: $0).size } ?? PaperSize.a4.size
         guard let blank = PDFDocument(data: ImagePDF.blankPage(size: size, style: style))?.page(at: 0) else { return }
         saveDrawings()
+        let pagesBefore = document.pageCount
         document.insert(blank, at: document.pageCount)
         guard let data = document.dataRepresentation() else {
             errorText = "Не удалось сохранить страницу."
@@ -304,7 +306,7 @@ final class ReaderController: NSObject, ObservableObject {
         do {
             try data.write(to: library.pdfURL(for: entry), options: .atomic)
             pageCount = document.pageCount
-            library.updatePageCount(documentID, pageCount: pageCount)
+            library.updatePageCount(documentID, pageCount: pageCount, sourcePages: pagesBefore)
             goToPage(pageCount - 1)
         } catch {
             errorText = error.localizedDescription
@@ -315,6 +317,7 @@ final class ReaderController: NSObject, ObservableObject {
         guard let entry = library.document(with: documentID), entry.kind.isConverted else { return }
         if isDrawing { setDrawing(false) }
         saveDrawings()
+        busyText = "Перерисовываю…"
         isBusy = true
         let ok = await library.rerender(entry)
         isBusy = false
@@ -360,6 +363,13 @@ final class ReaderController: NSObject, ObservableObject {
     // MARK: Export, print
 
     func export(_ kind: ExportKind) {
+        switch kind {
+        case .word, .odt, .allPageImages:
+            Task { await exportFiles(kind) }
+            return
+        default:
+            break
+        }
         guard let document = pdfDocument, let entry = library.document(with: documentID) else { return }
         saveDrawings()
         let fm = FileManager.default
@@ -392,9 +402,42 @@ final class ReaderController: NSObject, ObservableObject {
                 url = folder.appendingPathComponent("\(base), стр. \(currentPage + 1).png")
                 guard let png = image.pngData() else { return }
                 try png.write(to: url)
+            case .allPageImages, .word, .odt:
+                return
             }
             shareItem = ShareItem(urls: [url])
             presentShare([url])
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+
+    /// Word, ODT and pictures of all pages: made while a note says so, then shared.
+    private func exportFiles(_ kind: ExportKind) async {
+        guard !isBusy, let document = pdfDocument, let entry = library.document(with: documentID) else { return }
+        saveDrawings()
+        busyText = kind == .allPageImages ? "Готовлю картинки…" : "Готовлю файл…"
+        isBusy = true
+        defer { isBusy = false }
+        let source = DocumentExporter.Source(entry: entry, pdf: document, drawings: store.allDrawings,
+                                             canvasSizes: store.allCanvasSizes, original: library.originalURL(for: entry))
+        let progress: (String) -> Void = { [weak self] text in self?.busyText = text }
+        do {
+            let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Export-\(UUID().uuidString)", isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let base = Self.safeFileName(title)
+            let urls: [URL]
+            switch kind {
+            case .word:
+                urls = [try await DocumentExporter.export(.docx, source: source, title: base, into: folder, progress: progress)]
+            case .odt:
+                urls = [try await DocumentExporter.export(.odt, source: source, title: base, into: folder, progress: progress)]
+            default:
+                urls = try await DocumentExporter.pageImages(source: source, title: base, into: folder, progress: progress)
+            }
+            guard !urls.isEmpty else { return }
+            shareItem = ShareItem(urls: urls)
+            presentShare(urls)
         } catch {
             errorText = error.localizedDescription
         }

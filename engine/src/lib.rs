@@ -18,6 +18,7 @@ use wordcraft_doc::{CharProps, Document, Paragraph, Run, StoryRef, StyleSheet};
 use wordcraft_fonts::FontDb;
 
 pub mod armscii;
+pub mod export;
 
 /// Settings for one conversion (JSON from the app).
 #[derive(Clone, Debug)]
@@ -333,7 +334,45 @@ pub extern "C" fn hd_convert(request_json: *const c_char) -> *mut c_char {
     into_c_string(response)
 }
 
-/// Free a string returned by `hd_convert`.
+/// Save a document as Word (.docx) or OpenDocument (.odt) with the Pencil drawings made over it.
+/// `request_json`: {"input"? (the original file; without it a document of pictures), "output",
+/// "strokes": [{"page", "tool": pen|pencil|highlighter, "color": "RRGGBB", "alpha", "width",
+/// "points": [[x, y], …]}] (page points from the page's top left), "pictures": [{"path",
+/// "width", "height"}] (pages added after the document's own), "title", and the options of
+/// `hd_convert`}. Returns JSON (free it with `hd_free`): {"ok": true, "pages", "strokes",
+/// "skippedPages", "pictures"} or {"ok": false, "error", "needsPassword", "wrongPassword"}.
+#[unsafe(no_mangle)]
+pub extern "C" fn hd_export(request_json: *const c_char) -> *mut c_char {
+    let response = (|| {
+        let Some(json) = read_c_string(request_json) else { return json!({"ok": false, "error": "no request"}) };
+        let Ok(request) = serde_json::from_str::<Value>(&json) else { return json!({"ok": false, "error": "bad request"}) };
+        let req = match export::ExportRequest::from_json(&request) {
+            Ok(r) => r,
+            Err(e) => return json!({"ok": false, "error": e}),
+        };
+        let opts = Options::from_json(&request);
+        let _guard = LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        match catch_unwind(AssertUnwindSafe(|| export::export(&req, &opts))) {
+            Ok(Ok(r)) => json!({
+                "ok": true,
+                "pages": r.pages,
+                "strokes": r.strokes,
+                "skippedPages": r.skipped_pages,
+                "pictures": r.pictures,
+            }),
+            Ok(Err(e)) => json!({
+                "ok": false,
+                "error": e,
+                "needsPassword": wordcraft_engine::io::needs_password(&e),
+                "wrongPassword": wordcraft_engine::io::wrong_password(&e),
+            }),
+            Err(p) => json!({"ok": false, "error": format!("engine stopped: {}", panic_text(&p))}),
+        }
+    })();
+    into_c_string(response)
+}
+
+/// Free a string returned by `hd_convert` or `hd_export`.
 #[unsafe(no_mangle)]
 pub extern "C" fn hd_free(s: *mut c_char) {
     if !s.is_null() {

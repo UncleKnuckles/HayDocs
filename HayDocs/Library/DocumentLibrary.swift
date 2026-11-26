@@ -117,8 +117,10 @@ final class DocumentLibrary: ObservableObject {
         makeThumbnail(for: document)
     }
 
-    func updatePageCount(_ id: UUID, pageCount: Int) {
+    /// A page was added in the app: before the first one, the pages so far are the file's own.
+    func updatePageCount(_ id: UUID, pageCount: Int, sourcePages: Int? = nil) {
         guard var document = document(with: id) else { return }
+        if document.sourcePages == nil, let sourcePages { document.sourcePages = sourcePages }
         document.pageCount = pageCount
         document.modified = Date()
         save(document)
@@ -186,7 +188,9 @@ final class DocumentLibrary: ObservableObject {
                 created: now,
                 modified: now,
                 pageCount: pageCount,
-                notes: result.notes
+                notes: result.notes,
+                sourcePages: pageCount,
+                madeByEngine: result.byEngine
             )
             save(document)
             makeThumbnail(for: document)
@@ -226,9 +230,10 @@ final class DocumentLibrary: ObservableObject {
             let pdfURL = folder.appendingPathComponent("document.pdf")
             try pdfData.write(to: pdfURL, options: .atomic)
             let now = Date()
+            let pages = PDFDocument(url: pdfURL)?.pageCount ?? 0
             let document = LibraryDocument(id: id, title: title, originalFileName: "", kind: kind,
                                            created: now, modified: now,
-                                           pageCount: PDFDocument(url: pdfURL)?.pageCount ?? 0)
+                                           pageCount: pages, sourcePages: pages, madeByEngine: false)
             save(document)
             makeThumbnail(for: document)
             return document
@@ -345,6 +350,8 @@ final class DocumentLibrary: ObservableObject {
             try result.pdfData.write(to: pdfURL(for: document), options: .atomic)
             var updated = self.document(with: document.id) ?? document
             updated.pageCount = PDFDocument(url: pdfURL(for: document))?.pageCount ?? updated.pageCount
+            updated.sourcePages = updated.pageCount
+            updated.madeByEngine = result.byEngine
             updated.notes = result.notes
             updated.modified = Date()
             save(updated)

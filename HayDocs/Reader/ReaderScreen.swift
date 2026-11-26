@@ -28,7 +28,7 @@ struct ReaderScreen: View {
             .overlay(alignment: .bottom) { pageBadge }
             .overlay {
                 if controller.isBusy {
-                    ProgressView("Перерисовываю…")
+                    ProgressView(controller.busyText)
                         .padding(20)
                         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
@@ -114,15 +114,32 @@ struct ReaderScreen: View {
 
     private var exportMenu: some View {
         Menu {
-            Button { controller.export(.pdfWithDrawings) } label: { Label("PDF с рисунками", systemImage: "doc.richtext") }
-                .accessibilityIdentifier("exportPDFWithDrawings")
-            Button { controller.export(.pdfClean) } label: { Label("PDF без рисунков", systemImage: "doc") }
-            if controller.hasOriginal {
-                Button { controller.export(.originalFile) } label: { Label("Исходный файл", systemImage: "doc.badge.arrow.up") }
+            Section("С рисунками") {
+                Button { controller.export(.pdfWithDrawings) } label: { Label("PDF", systemImage: "doc.richtext") }
+                    .accessibilityIdentifier("exportPDFWithDrawings")
+                Button { controller.export(.word) } label: { Label("Word (.docx)", systemImage: "doc.text") }
+                    .accessibilityIdentifier("exportWord")
+                Button { controller.export(.odt) } label: { Label("ODT (OpenDocument)", systemImage: "doc.text") }
+                    .accessibilityIdentifier("exportODT")
+                Menu {
+                    Button { controller.export(.pageImage) } label: { Label("Эта страница", systemImage: "photo") }
+                        .accessibilityIdentifier("exportPageImage")
+                    Button { controller.export(.allPageImages) } label: { Label("Все страницы", systemImage: "photo.stack") }
+                        .accessibilityIdentifier("exportAllPageImages")
+                } label: {
+                    Label("Картинки страниц (PNG)", systemImage: "photo.on.rectangle")
+                }
+                .accessibilityIdentifier("exportImagesMenu")
             }
-            Button { controller.export(.pageImage) } label: { Label("Страница картинкой", systemImage: "photo") }
-            Divider()
-            Button { controller.printDocument() } label: { Label("Напечатать", systemImage: "printer") }
+            Section {
+                Button { controller.export(.pdfClean) } label: { Label("PDF без рисунков", systemImage: "doc") }
+                if controller.hasOriginal {
+                    Button { controller.export(.originalFile) } label: { Label("Исходный файл", systemImage: "doc.badge.arrow.up") }
+                }
+            }
+            Section {
+                Button { controller.printDocument() } label: { Label("Напечатать", systemImage: "printer") }
+            }
         } label: {
             Image(systemName: "square.and.arrow.up")
         }

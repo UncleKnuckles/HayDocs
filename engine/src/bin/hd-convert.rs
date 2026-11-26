@@ -1,4 +1,6 @@
-//! Command-line check of the engine: `hd-convert [--fonts DIR]... [--no-system-fonts] <in> <out.pdf|out.txt>`.
+//! Command-line check of the engine: `hd-convert [--fonts DIR]... [--no-system-fonts] <in> <out.pdf|out.txt>`,
+//! or `hd-convert ... --export request.json <in|-> <out.docx|out.odt>` to save with ink strokes and
+//! picture pages (the request as `hd_export` takes it; `-`: no original, pictures only).
 
 use std::path::Path;
 
@@ -9,6 +11,13 @@ fn main() {
         args.remove(i);
         if i < args.len() {
             font_dirs.push(args.remove(i));
+        }
+    }
+    let mut export_request = None;
+    if let Some(i) = args.iter().position(|a| a == "--export") {
+        args.remove(i);
+        if i < args.len() {
+            export_request = Some(args.remove(i));
         }
     }
     if let Some(i) = args.iter().position(|a| a == "--no-system-fonts") {
@@ -31,6 +40,23 @@ fn main() {
         std::process::exit(2);
     };
     let opts = haydocs_engine::Options::default();
+    if let Some(request) = export_request {
+        let text = std::fs::read_to_string(&request).expect("read the request");
+        let mut v: serde_json::Value = serde_json::from_str(&text).expect("request JSON");
+        if input != "-" {
+            v["input"] = serde_json::Value::from(input.as_str());
+        }
+        v["output"] = serde_json::Value::from(output.as_str());
+        let req = haydocs_engine::export::ExportRequest::from_json(&v).expect("request");
+        match haydocs_engine::export::export(&req, &opts) {
+            Ok(r) => eprintln!("ok: {r:?}"),
+            Err(e) => {
+                eprintln!("error: {e}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     if output.ends_with(".txt") {
         match haydocs_engine::plain_text(Path::new(input), &opts) {
             Ok(t) => std::fs::write(output, t).expect("write"),

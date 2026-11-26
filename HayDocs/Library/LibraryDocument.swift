@@ -56,6 +56,12 @@ struct LibraryDocument: Identifiable, Codable, Hashable {
     var pageCount: Int
     /// What was done to show it (e.g. old Armenian encoding converted), shown in the reader menu.
     var notes: [String] = []
+    /// How many pages came from the file; pages after them were added in the app. `nil` for
+    /// documents from before this was kept (and none added since): every page is the file's.
+    var sourcePages: Int?
+    /// The document engine made the pages (not the system viewer), so it can lay the file out
+    /// again for Word and ODT export. `nil` for documents from before this was kept.
+    var madeByEngine: Bool?
 
     var originalExtension: String {
         (originalFileName as NSString).pathExtension.lowercased()

@@ -78,7 +78,8 @@ final class WordEngine: @unchecked Sendable {
         }
     }
 
-    private func convertNow(_ request: Request) throws -> EngineReport {
+    /// The options both calls take: the Armenian fixes and the paper.
+    private func options(_ request: Request) -> [String: Any] {
         var body: [String: Any] = [
             "input": request.input.path,
             "output": request.output.path,
@@ -90,6 +91,60 @@ final class WordEngine: @unchecked Sendable {
             "region": request.paper == .letter ? "en-US" : "hy-AM",
         ]
         if let password = request.password { body["password"] = password }
+        return body
+    }
+
+    /// What `export` did.
+    struct ExportAnswer {
+        /// Pages of the original as the engine laid it out (0 without an original).
+        var pages = 0
+        var strokes = 0
+        /// Pages whose drawing could not be put on the page.
+        var skippedPages: [Int] = []
+    }
+
+    /// Save as Word (.docx) or ODT, the extension of `output` says which. `input` is the
+    /// original file, or nil for a document made only of `pictures` (whole pages, each
+    /// ["path", "width", "height"]); `strokes` are the Pencil strokes on the original's pages.
+    func export(input: URL?, output: URL, strokes: [[String: Any]], pictures: [[String: Any]], title: String) async throws -> ExportAnswer {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                continuation.resume(with: Result {
+                    try self.exportNow(input: input, output: output, strokes: strokes, pictures: pictures, title: title)
+                })
+            }
+        }
+    }
+
+    private func exportNow(input: URL?, output: URL, strokes: [[String: Any]], pictures: [[String: Any]], title: String) throws -> ExportAnswer {
+        var body = options(Request(input: input ?? output, output: output))
+        if input == nil { body.removeValue(forKey: "input") }
+        body["strokes"] = strokes
+        body["pictures"] = pictures
+        body["title"] = title
+        let json = try JSONSerialization.data(withJSONObject: body)
+        guard let text = String(data: json, encoding: .utf8) else { throw EngineError.failed("request") }
+        let started = Date()
+        guard let raw = hd_export(text) else { throw EngineError.failed("no answer") }
+        defer { hd_free(raw) }
+        let answer = String(cString: raw)
+        Log.info("engine export \(output.lastPathComponent): \(answer) in \(String(format: "%.2f", Date().timeIntervalSince(started))) s, \(strokes.count) strokes, \(pictures.count) pictures")
+        guard let data = answer.data(using: .utf8),
+              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw EngineError.failed(answer)
+        }
+        guard object["ok"] as? Bool == true else {
+            if object["wrongPassword"] as? Bool == true { throw EngineError.wrongPassword }
+            if object["needsPassword"] as? Bool == true { throw EngineError.needsPassword }
+            throw EngineError.failed(object["error"] as? String ?? answer)
+        }
+        return ExportAnswer(pages: object["pages"] as? Int ?? 0,
+                            strokes: object["strokes"] as? Int ?? 0,
+                            skippedPages: object["skippedPages"] as? [Int] ?? [])
+    }
+
+    private func convertNow(_ request: Request) throws -> EngineReport {
+        let body = options(request)
         let json = try JSONSerialization.data(withJSONObject: body)
         guard let text = String(data: json, encoding: .utf8) else { throw EngineError.failed("request") }
         let started = Date()
